@@ -1,0 +1,209 @@
+// Package router 提供 HTTP 路由定义和配置
+// 使用 Gin 框架,按 API 版本组织路由
+// 设计原则:
+// - 版本化路由(v1, v2...),便于 API 演进
+// - 分组管理,相关路由放在一起
+// - 中间件顺序正确,确保功能正常
+package router
+
+import (
+	"net/http"
+
+	"github.com/gin-gonic/gin"
+
+	"github.com/rei0721/rei0721/internal/handler"
+	"github.com/rei0721/rei0721/internal/middleware"
+	"github.com/rei0721/rei0721/pkg/logger"
+	"github.com/rei0721/rei0721/types/result"
+)
+
+// Router 管理 HTTP 路由配置和注册
+// 它持有必要的依赖(处理器、日志器)用于路由设置
+// 设计考虑:
+// - 集中管理所有路由,便于维护
+// - 通过依赖注入获取处理器,遵循 DI 原则
+// - 分离路由定义和处理逻辑,保持清晰的分层
+type Router struct {
+	// engine Gin 引擎实例
+	// 这是 Gin 框架的核心,负责 HTTP 请求路由和处理
+	engine *gin.Engine
+
+	// userHandler 用户相关的请求处理器
+	// 包含注册、登录、查询等处理方法
+	// 通过接口注入,便于测试和替换实现
+	userHandler *handler.UserHandler
+
+	// logger 日志记录器
+	// 用于记录路由相关的日志
+	// 也会传递给中间件使用
+	logger logger.Logger
+}
+
+// New 创建一个新的 Router 实例
+// 这是工厂函数,遵循依赖注入模式
+// 参数:
+//
+//	userHandler: 用户处理器,处理用户相关的请求
+//	log: 日志记录器,用于记录日志
+//
+// 返回:
+//
+//	*Router: 路由器实例
+//
+// 使用场景:
+//
+//	在应用初始化时创建,然后调用 Setup() 配置路由
+func New(userHandler *handler.UserHandler, log logger.Logger) *Router {
+	return &Router{
+		userHandler: userHandler,
+		logger:      log,
+	}
+}
+
+// Setup 初始化 Gin 引擎并配置中间件和路由
+// 这个方法完成路由器的完整设置
+// 参数:
+//
+//	cfg: 中间件配置,包含各个中间件的启用状态和参数
+//
+// 返回:
+//
+//	*gin.Engine: 配置好的 Gin 引擎,可以直接用于启动 HTTP 服务器
+//
+// 中间件顺序说明:
+//
+//	必须按 TraceID -> Logger -> Recovery 的顺序,原因:
+//	1. TraceID 必须最先,因为后续中间件都需要使用 TraceID
+//	2. Logger 在中间,可以记录包含 TraceID 的请求日志
+//	3. Recovery 必须最后,才能捕获所有中间件和处理器的 panic
+func (r *Router) Setup(cfg middleware.MiddlewareConfig) *gin.Engine {
+	// 创建一个新的 Gin 引擎
+	// 使用 gin.New() 而不是 gin.Default()
+	// gin.Default() 会自动添加 Logger 和 Recovery 中间件
+	// 我们使用 gin.New() 从零开始,完全控制中间件
+	r.engine = gin.New()
+
+	// 1. 应用 TraceID 中间件(必须第一个)
+	// 为每个请求生成或提取 TraceID
+	// 后续所有中间件和处理器都可以使用这个 TraceID
+	// 这是分布式追踪的基础
+	r.engine.Use(middleware.TraceID(cfg.TraceID))
+
+	// 2. 应用 Logger 中间件
+	// 记录每个请求的详细信息:方法、路径、状态码、耗时、TraceID 等
+	// 这对于监控、调试和问题排查至关重要
+	// 可以在配置中指定跳过某些路径(如健康检查)
+	r.engine.Use(middleware.Logger(cfg.Logger, r.logger))
+
+	// 3. 应用 Recovery 中间件(必须最后)
+	// 捕获所有 panic,防止服务崩溃
+	// 必须在所有其他中间件之后,才能捕获它们的 panic
+	// 发生 panic 时会记录日志并返回 500 错误
+	r.engine.Use(middleware.Recovery(cfg.Recovery, r.logger))
+
+	// 注册所有应用路由
+	// 包括健康检查、API 路由等
+	r.registerRoutes()
+
+	// 返回配置好的引擎
+	return r.engine
+}
+
+// registerRoutes 注册所有应用路由
+// 这个方法定义了应用的 URL 结构
+// 设计考虑:
+// - 使用路由分组,保持 URL 层次清晰
+// - 版本化 API(/api/v1),便于未来升级
+// - RESTful 风格,语义清晰
+func (r *Router) registerRoutes() {
+	// 健康检查端点
+	// GET /health
+	// 用途:
+	// - K8s/Docker 的健康探针
+	// - 负载均衡器的健康检查
+	// - 监控系统检查服务是否存活
+	// 这个端点应该:
+	// - 响应快速(不访问数据库)
+	// - 始终返回 200(除非服务真的挂了)
+	// - 不需要认证
+	r.engine.GET("/health", r.healthCheck)
+
+	// API v1 路由组
+	// 所有 v1 API 都在 /api/v1 路径下
+	// 好处:
+	// - 明确的版本标识
+	// - 可以同时运行多个版本(v1, v2)
+	// - URL 清晰,易于理解
+	v1 := r.engine.Group("/api/v1")
+	{
+		// 用户相关路由组
+		// 所有用户操作都在 /api/v1/users 路径下
+		// 这是 RESTful 设计,资源名称使用复数形式
+		users := v1.Group("/users")
+		{
+			// POST /api/v1/users/register - 用户注册
+			// 创建新用户账户
+			users.POST("/register", r.userHandler.Register)
+
+			// POST /api/v1/users/login - 用户登录
+			// 验证用户凭证并返回 token
+			users.POST("/login", r.userHandler.Login)
+
+			// GET /api/v1/users/:id - 获取指定用户
+			// :id 是路径参数,例如 /api/v1/users/123
+			// RESTful 风格:使用 GET + ID 获取单个资源
+			users.GET("/:id", r.userHandler.GetUser)
+
+			// GET /api/v1/users - 获取用户列表(分页)
+			// 查询参数: ?page=1&pageSize=10
+			// RESTful 风格:使用 GET 获取资源集合
+			users.GET("", r.userHandler.ListUsers)
+		}
+
+		// 未来可以在这里添加更多资源组:
+		// products := v1.Group("/products") { ... }
+		// orders := v1.Group("/orders") { ... }
+	}
+}
+
+// healthCheck 处理健康检查请求
+// GET /health
+// 用途:
+//
+//	用于容器编排平台(K8s)、负载均衡器等检查服务是否健康
+//
+// 响应:
+//
+//	总是返回 200 OK 和简单的状态信息
+//
+// 设计考虑:
+//   - 不访问数据库或外部服务,保证快速响应
+//   - 即使数据库连接失败,健康检查也应该返回 200
+//     (这样可以区分"服务进程挂了"和"依赖服务挂了")
+//   - 如果需要深度健康检查(包括数据库),应该另外提供 /health/deep 端点
+func (r *Router) healthCheck(c *gin.Context) {
+	// 返回 200 OK 和简单的状态信息
+	// 使用 result.Success 保持响应格式一致
+	// gin.H 是 map[string]interface{} 的简写
+	c.JSON(http.StatusOK, result.Success(gin.H{
+		"status": "ok",
+		// 未来可以添加更多信息:
+		// "version": "1.0.0",
+		// "uptime": calculateUptime(),
+	}))
+}
+
+// Engine 返回底层的 Gin 引擎
+// 这是一个访问器方法,用于特殊场景
+// 使用场景:
+//   - 单元测试中需要直接访问引擎
+//   - 需要在外部进行高级配置
+//   - 集成其他中间件或插件
+//
+// 注意:
+//
+//	大多数情况下不需要直接访问引擎
+//	应该通过 Router 的方法进行操作
+func (r *Router) Engine() *gin.Engine {
+	return r.engine
+}

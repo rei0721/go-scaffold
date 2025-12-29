@@ -1,0 +1,28 @@
+# 中文语言包
+success: 操作成功
+
+# 参数错误 1000-1999
+err_invalid_params: 参数错误
+err_invalid_username: 用户名格式不正确
+err_invalid_email: 邮箱格式不正确
+err_invalid_password: 密码格式不正确
+
+# 业务错误 2000-2999
+err_business_logic: 业务逻辑错误
+err_duplicate_username: 用户名已存在
+err_duplicate_email: 邮箱已存在
+
+# 认证错误 3000-3999
+err_unauthorized: 未授权
+err_invalid_token: 无效的令牌
+err_token_expired: 令牌已过期
+err_permission_denied: 权限不足
+
+# 资源错误 4000-4999
+err_resource_not_found: 资源不存在
+err_user_not_found: 用户不存在
+
+# 系统错误 5000-5999
+err_internal_server: 服务器内部错误
+err_database_error: 数据库错误
+err_cache_error: 缓存错误
