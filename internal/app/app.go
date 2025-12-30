@@ -6,12 +6,16 @@ package app
 import (
 	"context"
 	"fmt"
-	"net/http"
 	"time"
 
 	"github.com/gin-gonic/gin"
 
+	"github.com/rei0721/rei0721/pkg/cache"
+	"github.com/rei0721/rei0721/pkg/daemon"
+	"github.com/rei0721/rei0721/pkg/i18n"
+
 	"github.com/rei0721/rei0721/internal/config"
+	"github.com/rei0721/rei0721/internal/daemons"
 	"github.com/rei0721/rei0721/internal/handler"
 	"github.com/rei0721/rei0721/internal/middleware"
 	"github.com/rei0721/rei0721/internal/repository"
@@ -40,6 +44,14 @@ type App struct {
 	// 使用接口而非具体实现,便于切换数据库
 	DB database.Database
 
+	// I18n 国际化
+	I18n i18n.I18n
+
+	// Cache Redis 缓存
+	// 用于提高性能,减轻数据库压力
+	// 如果 Redis 未启用,此字段为 nil
+	Cache cache.Cache
+
 	// Scheduler 任务调度器,用于执行异步任务
 	// 基于 ants 协程池实现,提高并发性能
 	Scheduler scheduler.Scheduler
@@ -52,9 +64,10 @@ type App struct {
 	// 包含所有HTTP路由和中间件配置
 	Router *gin.Engine
 
-	// server HTTP 服务器实例
-	// 私有字段,仅供内部使用
-	server *http.Server
+	// DaemonManager 守护进程管理器
+	// 统一管理所有长期运行的服务(HTTP、gRPC、Kafka 等)
+	// 使用 daemon.Manager 实现优雅启动和关闭
+	DaemonManager *daemon.Manager
 }
 
 // Options 创建新 App 时的配置选项
@@ -67,12 +80,13 @@ type Options struct {
 
 // New 创建一个新的 App 实例
 // 按照正确的依赖顺序初始化所有组件:
-// config → logger → database → scheduler → repository → service → handler → router
+// config → logger → i18n → database → scheduler → repository → service → handler → router
 // 为什么这个顺序:
 // - config 最先:其他组件需要配置信息
 // - logger 第二:后续初始化过程需要记录日志
-// - database 第三:repository 依赖数据库
-// - scheduler 第四:service 需要调度器执行异步任务
+// - i18n 第三:响应HTTP需用到
+// - database 第四:repository 依赖数据库
+// - scheduler 第五:service 需要调度器执行异步任务
 // - repository、service、handler、router 依次初始化,形成完整的请求链路
 // 参数:
 //
@@ -113,7 +127,78 @@ func New(opts Options) (*App, error) {
 		return app.Logger
 	})
 
-	// 3. 初始化数据库连接
+	// 记录配置加载信息
+	// 展示环境变量支持功能已生效
+	app.Logger.Info("configuration loaded successfully",
+		"config_file", opts.ConfigPath,
+		"env_support", "enabled")
+
+	// 记录关键配置信息（不记录敏感信息）
+	app.Logger.Info("server configuration",
+		"port", app.Config.Server.Port,
+		"mode", app.Config.Server.Mode)
+
+	app.Logger.Info("database configuration",
+		"driver", app.Config.Database.Driver,
+		"host", app.Config.Database.Host,
+		"db", app.Config.Database.DBName)
+
+	if app.Config.Redis.Enabled {
+		app.Logger.Info("redis configuration",
+			"enabled", true,
+			"host", app.Config.Redis.Host,
+			"db", app.Config.Redis.DB)
+	} else {
+		app.Logger.Info("redis configuration", "enabled", false)
+	}
+
+	// 3. 初始化i18n
+	i18nCfg := &i18n.Config{
+		DefaultLanguage:    ConstantsI18nDefaultLanguage,
+		SupportedLanguages: ConstantsI18nSupportedLanguages,
+		MessagesDir:        ConstantsI18nMessagesDir,
+	}
+	i18nApp, i18nErr := i18n.New(i18nCfg)
+	if i18nErr != nil {
+		return nil, fmt.Errorf("failed to create i18n: %w", i18nErr)
+	}
+	app.I18n = i18nApp
+
+	// 4. 初始化 Redis 缓存(可选)
+	// 如果配置中启用了 Redis,则创建缓存实例
+	if app.Config.Redis.Enabled {
+		cacheCfg := &cache.Config{
+			Host:         app.Config.Redis.Host,
+			Port:         app.Config.Redis.Port,
+			Password:     app.Config.Redis.Password,
+			DB:           app.Config.Redis.DB,
+			PoolSize:     app.Config.Redis.PoolSize,
+			MinIdleConns: app.Config.Redis.MinIdleConns,
+			MaxRetries:   app.Config.Redis.MaxRetries,
+			DialTimeout:  time.Duration(app.Config.Redis.DialTimeout) * time.Second,
+			ReadTimeout:  time.Duration(app.Config.Redis.ReadTimeout) * time.Second,
+			WriteTimeout: time.Duration(app.Config.Redis.WriteTimeout) * time.Second,
+		}
+
+		cacheClient, err := cache.NewRedis(cacheCfg, log)
+		if err != nil {
+			// Redis 连接失败
+			// 可以选择:
+			// 1. 返回错误,强制要求 Redis 可用
+			// 2. 警告但继续,允许无缓存运行
+			// 这里选择方案 2,提高可用性
+			app.Logger.Warn("failed to connect to redis, running without cache", "error", err)
+			app.Cache = nil
+		} else {
+			app.Cache = cacheClient
+			app.Logger.Info("redis cache connected successfully")
+		}
+	} else {
+		app.Logger.Info("redis cache disabled")
+		app.Cache = nil
+	}
+
+	// 5. 初始化数据库连接
 	db, err := database.New(&database.Config{
 		Driver:       database.Driver(app.Config.Database.Driver),
 		Host:         app.Config.Database.Host,
@@ -130,7 +215,7 @@ func New(opts Options) (*App, error) {
 	app.DB = db
 	app.Logger.Info("database connected successfully")
 
-	// 4. Initialize scheduler
+	// 5. Initialize scheduler
 	sched, err := scheduler.New(&scheduler.Config{
 		PoolSize:       10000,
 		ExpiryDuration: time.Second,
@@ -141,16 +226,16 @@ func New(opts Options) (*App, error) {
 	app.Scheduler = sched
 	app.Logger.Info("scheduler initialized", "poolSize", 10000)
 
-	// 5. Initialize repository layer
+	// 6. Initialize repository layer
 	userRepo := repository.NewUserRepository(db.DB())
 
-	// 6. Initialize service layer (with dependency injection)
+	// 7. Initialize service layer (with dependency injection)
 	userService := service.NewUserService(userRepo, sched)
 
-	// 7. Initialize handler layer
+	// 8. Initialize handler layer
 	userHandler := handler.NewUserHandler(userService)
 
-	// 8. Initialize router
+	// 9. Initialize router
 	r := router.New(userHandler, log)
 
 	// Set Gin mode based on config
@@ -166,70 +251,118 @@ func New(opts Options) (*App, error) {
 	middlewareCfg := middleware.DefaultMiddlewareConfig()
 	app.Router = r.Setup(middlewareCfg)
 
-	// 9. Start config file watching for hot-reload
+	// 10. Start config file watching for hot-reload
 	if err := configManager.Watch(); err != nil {
 		app.Logger.Warn("failed to start config watcher", "error", err)
 	}
 
 	// Register config change hook
+	// 当配置文件变化时自动调用
 	configManager.RegisterHook(func(old, new *config.Config) {
-		app.Logger.Info("configuration updated",
-			"oldPort", old.Server.Port,
-			"newPort", new.Server.Port,
-		)
+		app.Logger.Info("configuration file changed, processing updates...")
+
+		// 1. 检查 Redis 配置是否变化
+		// 使用工具方法比较新旧配置
+		if isRedisConfigChanged(old, new) {
+			app.Logger.Info("redis configuration changed, reloading cache...")
+
+			// 只有在 Cache 不为 nil 且新配置启用了 Redis 时才重载
+			if app.Cache != nil && new.Redis.Enabled {
+				// 创建新的缓存配置
+				newCacheCfg := &cache.Config{
+					Host:         new.Redis.Host,
+					Port:         new.Redis.Port,
+					Password:     new.Redis.Password,
+					DB:           new.Redis.DB,
+					PoolSize:     new.Redis.PoolSize,
+					MinIdleConns: new.Redis.MinIdleConns,
+					MaxRetries:   new.Redis.MaxRetries,
+					DialTimeout:  time.Duration(new.Redis.DialTimeout) * time.Second,
+					ReadTimeout:  time.Duration(new.Redis.ReadTimeout) * time.Second,
+					WriteTimeout: time.Duration(new.Redis.WriteTimeout) * time.Second,
+				}
+
+				// 使用超时上下文进行重载
+				ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+				defer cancel()
+
+				// 原子化重载缓存配置
+				err := app.Cache.Reload(ctx, newCacheCfg)
+				if err != nil {
+					app.Logger.Error("failed to reload redis cache", "error", err)
+				} else {
+					app.Logger.Info("redis cache reloaded successfully")
+				}
+			} else if !new.Redis.Enabled {
+				app.Logger.Info("redis disabled in new config")
+			} else {
+				app.Logger.Warn("cache is nil, cannot reload redis configuration")
+			}
+		}
+
+		// 2. 检查服务器配置是否变化
+		if isServerConfigChanged(old, new) {
+			app.Logger.Info("server configuration changed",
+				"oldPort", old.Server.Port,
+				"newPort", new.Server.Port)
+		}
+
+		// 3. 更新应用配置引用
 		app.Config = new
+		app.Logger.Info("configuration update completed")
 	})
+
+	// 11. 初始化守护进程管理器
+	// 用于统一管理所有长期运行的服务
+	app.DaemonManager = daemon.NewManager(log)
+
+	// 注册 HTTP 守护进程
+	// 将 HTTP 服务器封装为 daemon 并注册到管理器
+	addr := fmt.Sprintf(":%d", app.Config.Server.Port)
+	httpDaemon := daemons.NewHTTPDaemon(addr, app.Config.Server.ReadTimeout, app.Config.Server.WriteTimeout, app.Router, log)
+	app.DaemonManager.Register(httpDaemon)
 
 	app.Logger.Info("application initialized successfully")
 	return app, nil
 }
 
-// Run 启动 HTTP 服务器并阻塞直到服务器停止
-// 这个方法会一直运行直到:
-// - 服务器发生错误
-// - Shutdown() 被调用
+// Start 启动所有守护进程
+// 这个方法会启动所有注册的守护进程(包括 HTTP 服务器)
+// 并且不会阻塞,服务在后台运行
+// 参数:
+//
+//	ctx: 上下文,用于控制启动过程
+//
 // 返回:
 //
-//	error: 服务器启动失败或运行时错误
-func (a *App) Run() error {
-	// 构造监听地址
-	// 格式: ":8080" 表示监听所有网络接口的 8080 端口
-	addr := fmt.Sprintf(":%d", a.Config.Server.Port)
-
-	// 创建 HTTP 服务器实例
-	// 配置超时参数防止慢速客户端占用连接
-	a.server = &http.Server{
-		// Addr 监听地址
-		Addr: addr,
-
-		// Handler HTTP 请求处理器(Gin Router)
-		Handler: a.Router,
-
-		// ReadTimeout 读取请求的最大时间
-		// 包括读取请求头和请求体
-		// 防止慢速客户端长时间占用连接
-		ReadTimeout: time.Duration(a.Config.Server.ReadTimeout) * time.Second,
-
-		// WriteTimeout 写入响应的最大时间
-		// 从请求处理完成到写入完整响应
-		// 防止慢速客户端长时间占用连接
-		WriteTimeout: time.Duration(a.Config.Server.WriteTimeout) * time.Second,
+//	error: 启动失败时的错误
+func (a *App) Start(ctx context.Context) error {
+	// 启动所有守护进程
+	// Manager.Start() 会并发启动所有注册的守护进程
+	if err := a.DaemonManager.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start daemons: %w", err)
 	}
 
-	a.Logger.Info("starting HTTP server", "addr", addr)
-
-	// 启动服务器并开始监听
-	// ListenAndServe 会阻塞,直到:
-	// - 发生错误
-	// - Shutdown() 被调用
-	if err := a.server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-		// ErrServerClosed 是正常的关闭,不是错误
-		// 其他错误才需要返回
-		return fmt.Errorf("failed to start server: %w", err)
-	}
-
-	// 正常关闭,返回 nil
+	a.Logger.Info("all daemons started successfully")
 	return nil
+}
+
+// Run 启动应用并阻塞直到接收到停止信号
+// 这个方法是为了保持向后兼容性
+// 实际上它只是调用 Start() 然后阻塞
+// 返回:
+//
+//	error: 启动失败时的错误
+func (a *App) Run() error {
+	// 启动所有守护进程
+	if err := a.Start(context.Background()); err != nil {
+		return err
+	}
+
+	// 阻塞,直到 Shutdown() 被调用
+	// 这里使用一个简单的 select {}
+	// 实际应用中通常会监听信号来控制关闭
+	select {}
 }
 
 // Shutdown 优雅地关闭应用程序
@@ -256,18 +389,19 @@ func (a *App) Shutdown(ctx context.Context) error {
 	// 收集所有关闭过程中的错误
 	var errs []error
 
-	// 1. 关闭 HTTP 服务器
+	// 1. 关闭所有守护进程(包括 HTTP 服务器)
+	// DaemonManager.Stop() 会并发关闭所有注册的守护进程
 	// 步骤:
-	// - 停止接收新连接
-	// - 等待现有请求处理完成
+	// - 停止接收新连接/任务
+	// - 等待现有连接/任务完成
 	// - 或者直到 context 超时
-	if a.server != nil {
-		if err := a.server.Shutdown(ctx); err != nil {
+	if a.DaemonManager != nil {
+		if err := a.DaemonManager.Stop(ctx); err != nil {
 			// 关闭失败,记录错误但继续关闭其他组件
-			a.Logger.Error("failed to shutdown HTTP server", "error", err)
-			errs = append(errs, fmt.Errorf("http server shutdown: %w", err))
+			a.Logger.Error("failed to stop daemons", "error", err)
+			errs = append(errs, fmt.Errorf("daemons shutdown: %w", err))
 		} else {
-			a.Logger.Info("HTTP server stopped")
+			a.Logger.Info("all daemons stopped")
 		}
 	}
 
@@ -285,7 +419,20 @@ func (a *App) Shutdown(ctx context.Context) error {
 		}
 	}
 
-	// 3. 关闭数据库连接
+	// 3. 关闭缓存连接
+	// 步骤:
+	// - 关闭 Redis 连接
+	// - 释放连接池资源
+	if a.Cache != nil {
+		if err := a.Cache.Close(); err != nil {
+			a.Logger.Error("failed to close cache", "error", err)
+			errs = append(errs, fmt.Errorf("cache close: %w", err))
+		} else {
+			a.Logger.Info("cache closed")
+		}
+	}
+
+	// 4. 关闭数据库连接
 	// 步骤:
 	// - 关闭所有连接池中的连接
 	// - 释放相关资源

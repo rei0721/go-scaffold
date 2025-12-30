@@ -1,0 +1,43 @@
+# English (United States) Translation File
+# Format: messageID: translation text
+# Template variables use {{.VariableName}} syntax
+
+# Welcome messages
+welcome.message: Welcome to our application
+welcome.back: Welcome back, {{.Name}}!
+
+# User related messages
+user.greeting: Hello, {{.Name}}!
+user.profile: "{{.Name}}'s Profile"
+user.registered: User {{.Name}} has been registered for {{.Days}} days
+
+# Error messages
+error.user_not_found: User not found
+error.invalid_params: Invalid parameters
+error.invalid_username: Invalid username format
+error.invalid_email: Invalid email format
+error.invalid_password: Invalid password format
+error.duplicate_username: Username already exists
+error.duplicate_email: Email already registered
+error.unauthorized: Unauthorized access
+error.permission_denied: Permission denied
+error.internal_server: Internal server error
+error.database_error: Database error
+
+# Success messages
+success.user_created: User created successfully
+success.user_updated: User profile updated successfully
+success.user_deleted: User deleted successfully
+success.login: Login successful
+success.logout: Logout successful
+
+# Validation messages
+validation.required: This field is required
+validation.min_length: Minimum length is {{.Min}} characters
+validation.max_length: Maximum length is {{.Max}} characters
+validation.email_format: Please enter a valid email address
+validation.password_strength: Password is too weak, at least 8 characters required
+
+# Confirmation messages
+confirm.delete_user: Are you sure you want to delete user {{.Name}}?
+confirm.logout: Are you sure you want to logout?

@@ -159,6 +159,32 @@ type RedisConfig struct {
 	// 0 表示使用默认值(通常是 CPU 核心数 * 10)
 	// 推荐: 10-100
 	PoolSize int `mapstructure:"poolSize"`
+
+	// MinIdleConns 最小空闲连接数
+	// 保持一定数量的空闲连接可以提高响应速度
+	// 推荐: PoolSize 的 30-50%
+	MinIdleConns int `mapstructure:"minIdleConns"`
+
+	// MaxRetries 最大重试次数
+	// 当命令执行失败时自动重试的次数
+	// 0 表示不重试
+	// 推荐: 2-3 次
+	MaxRetries int `mapstructure:"maxRetries"`
+
+	// DialTimeout 连接超时时间(秒)
+	// 建立 TCP 连接的最大等待时间
+	// 推荐: 5 秒
+	DialTimeout int `mapstructure:"dialTimeout"`
+
+	// ReadTimeout 读取超时时间(秒)
+	// 从 Redis 读取响应的最大等待时间
+	// 推荐: 3 秒
+	ReadTimeout int `mapstructure:"readTimeout"`
+
+	// WriteTimeout 写入超时时间(秒)
+	// 向 Redis 写入命令的最大等待时间
+	// 推荐: 3 秒
+	WriteTimeout int `mapstructure:"writeTimeout"`
 }
 
 // LoggerConfig 日志配置

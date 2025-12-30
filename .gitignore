@@ -42,11 +42,13 @@ Thumbs.db
 
 # Config overrides
 configs/config.local.yaml
-configs/config.yaml
 
 # Temporary files
 /tmp/
 *.tmp
+
+# ide
+.idea
 
 # ai ide
 .kiro

@@ -160,37 +160,49 @@ func (m *manager) Load(configPath string) error {
 	// 保存配置文件路径,用于 Watch
 	m.configPath = configPath
 
-	// 设置配置文件
+	// 1. 加载 .env 文件(如果存在)
+	// 这应该在读取 config.yaml 之前完成
+	// .env 文件中的变量会被加载到进程环境变量中
+	// 已存在的系统环境变量不会被覆盖
+	LoadEnv()
+
+	// 2. 设置配置文件
 	// viper 会根据文件扩展名自动检测格式
 	m.v.SetConfigFile(configPath)
 
-	// 读取配置文件
+	// 3. 读取配置文件
 	// 这会解析文件内容到 viper 内部结构
 	if err := m.v.ReadInConfig(); err != nil {
 		return fmt.Errorf("failed to read config file: %w", err)
 	}
 
-	// 处理环境变量替换
+	// 4. 处理环境变量替换
 	// 将配置中的 ${VAR_NAME:default} 替换为环境变量值
 	// 例如: port: ${PORT:8080} -> port: 8080(如果 PORT 未设置)
 	if err := m.processEnvSubstitution(); err != nil {
 		return fmt.Errorf("failed to process env substitution: %w", err)
 	}
 
-	// 反序列化为 Config 结构体
+	// 5. 反序列化为 Config 结构体
 	// viper 会根据 mapstructure tag 映射字段
 	cfg := &Config{}
 	if err := m.v.Unmarshal(cfg); err != nil {
 		return fmt.Errorf("failed to unmarshal config: %w", err)
 	}
 
-	// 验证配置
+	// 6. 使用环境变量覆盖配置
+	// 优先级: 环境变量 > config.yaml
+	// 这允许通过环境变量覆盖配置文件中的任何值
+	// 特别适合容器环境和CI/CD流程
+	OverrideWithEnv(cfg)
+
+	// 7. 验证配置
 	// 确保所有必需的字段都有有效值
 	if err := cfg.Validate(); err != nil {
 		return fmt.Errorf("config validation failed: %w", err)
 	}
 
-	// 原子存储配置
+	// 8. 原子存储配置
 	// 使用 atomic.Pointer.Store 确保并发安全
 	m.config.Store(cfg)
 

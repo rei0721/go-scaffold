@@ -32,7 +32,8 @@ type Pagination struct {
 // 使用泛型支持任意类型的列表
 // 这是分页查询的标准响应格式
 // 类型参数:
-//   T: 列表项的类型,例如 UserResponse, ProductResponse 等
+//
+//	T: 列表项的类型,例如 UserResponse, ProductResponse 等
 type PageResult[T any] struct {
 	// List 当前页的数据列表
 	// 切片类型,包含 0 到 PageSize 个元素
@@ -49,32 +50,39 @@ type PageResult[T any] struct {
 // NewPageResult 创建一个新的 PageResult
 // 这是一个便捷函数,自动计算总页数
 // 参数:
-//   list: 当前页的数据列表
-//   page: 当前页码(从 1 开始)
-//   pageSize: 每页大小
-//   total: 总记录数(来自数据库 COUNT 查询)
+//
+//	list: 当前页的数据列表
+//	page: 当前页码(从 1 开始)
+//	pageSize: 每页大小
+//	total: 总记录数(来自数据库 COUNT 查询)
+//
 // 返回:
-//   *PageResult[T]: 包含列表和分页信息的完整结果
+//
+//	*PageResult[T]: 包含列表和分页信息的完整结果
+//
 // 使用示例:
-//   users := []UserResponse{...}  // 从数据库查询的当前页数据
-//   total := int64(1000)          // 数据库中的总记录数
-//   pageResult := NewPageResult(users, 1, 10, total)
-//   return c.JSON(200, result.Success(pageResult))
+//
+//	users := []UserResponse{...}  // 从数据库查询的当前页数据
+//	total := int64(1000)          // 数据库中的总记录数
+//	pageResult := NewPageResult(users, 1, 10, total)
+//	return c.JSON(200, result.Success(pageResult))
+//
 // 响应格式:
-//   {
-//     "code": 0,
-//     "message": "success",
-//     "data": {
-//       "list": [...],
-//       "pagination": {
-//         "page": 1,
-//         "pageSize": 10,
-//         "total": 1000,
-//         "totalPages": 100
-//       }
-//     },
-//     "serverTime": 1640000000
-//   }
+//
+//	{
+//	  "code": 0,
+//	  "message": "success",
+//	  "data": {
+//	    "list": [...],
+//	    "pagination": {
+//	      "page": 1,
+//	      "pageSize": 10,
+//	      "total": 1000,
+//	      "totalPages": 100
+//	    }
+//	  },
+//	  "serverTime": 1640000000
+//	}
 func NewPageResult[T any](list []T, page, pageSize int, total int64) *PageResult[T] {
 	// 计算总页数
 	// 使用整数除法,如果有余数则总页数 +1
