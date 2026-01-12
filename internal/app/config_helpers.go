@@ -152,3 +152,68 @@ func isServerConfigChanged(oldCfg, newCfg *config.Config) bool {
 
 	return false
 }
+
+// isLoggerConfigChanged 检查日志配置是否发生变化
+// 参数:
+//
+//	oldCfg: 旧配置
+//	newCfg: 新配置
+//
+// 返回:
+//
+//	bool: 如果配置有任何差异返回 true,否则返回 false
+//
+// 使用示例:
+//
+//	if isLoggerConfigChanged(oldConfig, newConfig) {
+//	    // 配置变化了，需要重载
+//	    logger.Reload(newLoggerCfg)
+//	}
+func isLoggerConfigChanged(oldCfg, newCfg *config.Config) bool {
+	if oldCfg == newCfg {
+		return false
+	}
+
+	// 比较日志级别
+	if oldCfg.Logger.Level != newCfg.Logger.Level {
+		return true
+	}
+	// 比较日志格式
+	if oldCfg.Logger.Format != newCfg.Logger.Format {
+		return true
+	}
+	// 比较控制台格式
+	if oldCfg.Logger.ConsoleFormat != newCfg.Logger.ConsoleFormat {
+		return true
+	}
+	// 比较文件格式
+	if oldCfg.Logger.FileFormat != newCfg.Logger.FileFormat {
+		return true
+	}
+	// 比较输出目标
+	if oldCfg.Logger.Output != newCfg.Logger.Output {
+		return true
+	}
+
+	// 比较日志文件路径
+	if oldCfg.Logger.FilePath != newCfg.Logger.FilePath {
+		return true
+	}
+
+	// 比较日志文件最大大小
+	if oldCfg.Logger.MaxSize != newCfg.Logger.MaxSize {
+		return true
+	}
+
+	// 比较日志文件最大备份数
+	if oldCfg.Logger.MaxBackups != newCfg.Logger.MaxBackups {
+		return true
+	}
+
+	// 比较日志文件最大年龄
+	if oldCfg.Logger.MaxAge != newCfg.Logger.MaxAge {
+		return true
+	}
+
+	return false
+}

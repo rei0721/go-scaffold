@@ -13,8 +13,9 @@ package logger
 // - 使用可变参数支持结构化日志
 // - 支持日志上下文(With 方法)
 // 使用示例:
-//   log.Info("user created", "userId", 123, "username", "alice")
-//   log.Error("database error", "error", err, "query", sql)
+//
+//	log.Info("user created", "userId", 123, "username", "alice")
+//	log.Error("database error", "error", err, "query", sql)
 type Logger interface {
 	// Debug 记录调试级别的日志
 	// 用途:
@@ -114,6 +115,30 @@ type Logger interface {
 	//   如果程序突然退出,缓冲的日志可能丢失
 	//   Sync 确保所有日志都被写入
 	Sync() error
+
+	// Reloader 嵌入重载接口
+	// 使 Logger 支持运行时配置热更新
+	Reloader
+}
+
+// Reloader 定义日志配置重载接口
+// 允许在运行时热更新日志配置,无需重启应用
+// 使用场景:
+//   - 配置文件变更时自动重载
+//   - 动态调整日志级别
+//   - 切换日志输出目标
+type Reloader interface {
+	// Reload 使用新配置重新加载日志系统
+	// 这是一个原子操作,失败时保持原配置不变
+	// 参数:
+	//   cfg: 新的日志配置
+	// 返回:
+	//   error: 重载失败时的错误
+	// 并发安全:
+	//   - 使用读写锁保护,确保重载过程原子性
+	//   - 失败时保持原有 logger 不变
+	//   - 新 logger 创建成功后才替换旧 logger
+	Reload(cfg *Config) error
 }
 
 // Config 保存日志配置
@@ -128,24 +153,40 @@ type Config struct {
 	// 生产环境推荐: info 或 warn
 	Level string
 
-	// Format 输出格式
+	// Format 默认输出格式(用于所有输出)
 	// 可选值:
 	// - json: 结构化 JSON 格式,便于日志系统解析
 	// - console: 人类可读的控制台格式,便于开发调试
+	// 如果设置了 ConsoleFormat 或 FileFormat,则此字段作为后备默认值
 	// 生产环境推荐: json(便于 ELK、Splunk 等系统分析)
 	// 开发环境推荐: console(易读)
 	Format string
 
+	// ConsoleFormat 控制台输出专用格式
+	// 可选值: json, console
+	// 如果为空,则使用 Format 的值
+	// 适用场景: 想要控制台用 console 格式,文件用 json 格式
+	ConsoleFormat string
+
+	// FileFormat 文件输出专用格式
+	// 可选值: json, console
+	// 如果为空,则使用 Format 的值
+	// 适用场景: 想要控制台用 console 格式,文件用 json 格式
+	FileFormat string
+
 	// Output 输出目标
 	// 可选值:
-	// - stdout: 标准输出,适合容器环境(日志收集器会捕获)
-	// - file: 文件输出,需要配合 FilePath
-	// 容器/K8s 环境推荐: stdout
-	// 传统部署推荐: file
+	// - stdout: 仅标准输出,适合容器环境(日志收集器会捕获)
+	// - file: 仅文件输出,需要配合 FilePath,适合传统部署
+	// - both: 同时输出到文件和标准输出,适合开发环境
+	// 推荐:
+	// - 容器/K8s 环境: stdout
+	// - 传统部署: file
+	// - 开发环境: both
 	Output string
 
 	// FilePath 日志文件路径
-	// 仅当 Output="file" 时有效
+	// 仅当 Output="file" 或 Output="both" 时有效
 	// 例如: /var/log/app/app.log
 	// 注意:
 	// - 确保目录存在且有写权限

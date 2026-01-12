@@ -53,6 +53,7 @@ func LoadEnv() {
 	fmt.Fprintf(os.Stderr, "[DEBUG] REDIS_HOST=%s\n", os.Getenv("REDIS_HOST"))
 	fmt.Fprintf(os.Stderr, "[DEBUG] DB_HOST=%s\n", os.Getenv("DB_HOST"))
 	fmt.Fprintf(os.Stderr, "[DEBUG] REDIS_ENABLED=%s\n", os.Getenv("REDIS_ENABLED"))
+	fmt.Fprintf(os.Stderr, "[DEBUG] REI_APP_TEST=%s\n", os.Getenv("REI_APP_TEST"))
 }
 
 // OverrideWithEnv 使用环境变量覆盖配置
@@ -99,47 +100,47 @@ func OverrideWithEnv(cfg *Config) {
 // overrideDatabaseConfig 使用环境变量覆盖数据库配置
 func overrideDatabaseConfig(cfg *DatabaseConfig) {
 	// Driver
-	if val := os.Getenv(EnvDBDriver); val != "" {
+	if val := os.Getenv(EnvPrefixJoin(EnvDBDriver)); val != "" {
 		cfg.Driver = val
 	}
 
 	// Host
-	if val := os.Getenv(EnvDBHost); val != "" {
+	if val := os.Getenv(EnvPrefixJoin(EnvDBHost)); val != "" {
 		cfg.Host = val
 	}
 
 	// Port
-	if val := os.Getenv(EnvDBPort); val != "" {
+	if val := os.Getenv(EnvPrefixJoin(EnvDBPort)); val != "" {
 		if port, err := strconv.Atoi(val); err == nil {
 			cfg.Port = port
 		}
 	}
 
 	// User
-	if val := os.Getenv(EnvDBUser); val != "" {
+	if val := os.Getenv(EnvPrefixJoin(EnvDBUser)); val != "" {
 		cfg.User = val
 	}
 
 	// Password
 	// 密码应该优先使用环境变量
-	if val := os.Getenv(EnvDBPassword); val != "" {
+	if val := os.Getenv(EnvPrefixJoin(EnvDBPassword)); val != "" {
 		cfg.Password = val
 	}
 
 	// DBName
-	if val := os.Getenv(EnvDBName); val != "" {
+	if val := os.Getenv(EnvPrefixJoin(EnvDBName)); val != "" {
 		cfg.DBName = val
 	}
 
 	// MaxOpenConns
-	if val := os.Getenv(EnvDBMaxOpenConns); val != "" {
+	if val := os.Getenv(EnvPrefixJoin(EnvDBMaxOpenConns)); val != "" {
 		if conns, err := strconv.Atoi(val); err == nil {
 			cfg.MaxOpenConns = conns
 		}
 	}
 
 	// MaxIdleConns
-	if val := os.Getenv(EnvDBMaxIdleConns); val != "" {
+	if val := os.Getenv(EnvPrefixJoin(EnvDBMaxIdleConns)); val != "" {
 		if conns, err := strconv.Atoi(val); err == nil {
 			cfg.MaxIdleConns = conns
 		}

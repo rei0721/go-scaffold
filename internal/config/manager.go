@@ -450,9 +450,15 @@ func (m *manager) copyConfig(src *Config) *Config {
 			PoolSize: src.Redis.PoolSize,
 		},
 		Logger: LoggerConfig{
-			Level:  src.Logger.Level,
-			Format: src.Logger.Format,
-			Output: src.Logger.Output,
+			Level:         src.Logger.Level,
+			Format:        src.Logger.Format,
+			ConsoleFormat: src.Logger.ConsoleFormat,
+			FileFormat:    src.Logger.FileFormat,
+			Output:        src.Logger.Output,
+			FilePath:      src.Logger.FilePath,
+			MaxSize:       src.Logger.MaxSize,
+			MaxBackups:    src.Logger.MaxBackups,
+			MaxAge:        src.Logger.MaxAge,
 		},
 		I18n: I18nConfig{
 			Default:   src.I18n.Default,

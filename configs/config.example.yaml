@@ -1,5 +1,6 @@
 server:
-  port: ${SERVER_PORT:8080}
+  host: 0.0.0.0
+  port: 9999
   mode: ${SERVER_MODE:debug}
   readTimeout: 10
   writeTimeout: 10
@@ -15,17 +16,93 @@ database:
   maxIdleConns: 10
 
 redis:
+  # 是否启用 Redis 缓存
+  # true: 启用, false: 禁用（应用将在无缓存模式下运行）
   enabled: true
   host: ${REDIS_HOST:localhost}
   port: ${REDIS_PORT:6379}
-  password: ${REDIS_PASSWORD:}
+  password: ${REDIS_PASSWORD:password}
+  # Redis 数据库索引 (0-15)
+  # 不同环境可以使用不同的 DB 来隔离数据
+  # 开发: 0, 测试: 1, 生产: 0
   db: ${REDIS_DB:0}
-  poolSize: 10
+
+  # 连接池大小
+  # 决定最多可以同时建立多少个 Redis 连接
+  # 推荐值:
+  #   - 小型应用: 10
+  #   - 中型应用: 20-50
+  #   - 大型应用: 100+
+  poolSize: 30
+
+  # 最小空闲连接数
+  # 保持一定数量的空闲连接可以减少连接建立延迟
+  # 通常设置为 poolSize 的 30-50%
+  minIdleConns: 10
+
+  # 最大重试次数
+  # 当命令执行失败时自动重试的次数
+  # 0 表示不重试
+  # 推荐: 2-3 次
+  maxRetries: 3
+
+  # 连接超时时间（秒）
+  # 建立 TCP 连接的最大等待时间
+  # 推荐: 5 秒
+  dialTimeout: 5
+
+  # 读取超时时间（秒）
+  # 从 Redis 读取响应的最大等待时间
+  # 推荐: 3 秒
+  readTimeout: 3
+
+  # 写入超时时间（秒）
+  # 向 Redis 写入命令的最大等待时间
+  # 推荐: 3 秒
+  writeTimeout: 3
 
 logger:
-  level: ${LOG_LEVEL:info}
-  format: ${LOG_FORMAT:json}
-  output: stdout
+  # 日志级别
+  # 可选值: debug, info, warn, error
+  # 开发环境推荐: debug
+  # 生产环境推荐: info
+  level: debug
+
+  # 默认日志格式（如果未设置专用格式则使用此值）
+  # json: JSON 格式，便于日志系统解析（生产环境推荐）
+  # console: 控制台格式，人类易读（开发环境推荐）
+  format: console
+
+  # 控制台输出专用格式（可选）
+  # 如果设置，控制台输出使用此格式，否则使用 format
+  # 推荐: console（易读）
+  console_format: console
+
+  # 文件输出专用格式（可选）
+  # 如果设置，文件输出使用此格式，否则使用 format
+  # 推荐: json（便于日志系统解析）
+  file_format: json
+
+  # 日志输出目标
+  # stdout: 仅输出到控制台（适合容器环境、开发调试）
+  # file: 仅输出到文件（适合传统部署、需要持久化日志）
+  # both: 同时输出到文件和控制台（适合开发环境、需要实时查看又要保存日志）
+  output: both
+
+  # 日志文件路径（仅当 output 为 file 或 both 时有效）
+  file_path: logs/app.log
+
+  # 单个日志文件最大大小（MB）
+  # 超过此大小会自动轮转创建新文件
+  max_size: 10
+
+  # 保留的旧日志文件最大数量
+  # 超过此数量会删除最旧的文件
+  max_backups: 10
+
+  # 保留旧日志文件的最大天数
+  # 超过此天数会自动删除
+  max_age: 30
 
 i18n:
   default: zh-CN

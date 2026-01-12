@@ -13,6 +13,8 @@ package scheduler
 import (
 	"context"
 	"time"
+
+	"github.com/gin-gonic/gin"
 )
 
 // Scheduler 定义协程池管理的接口
@@ -52,6 +54,9 @@ type Scheduler interface {
 	//   - 更新缓存
 	//   - 触发其他服务
 	Submit(ctx context.Context, task func(context.Context)) error
+
+	// http
+	SubmitWithHTTP(ctx context.Context, task func(context.Context, *gin.Context)) error
 
 	// SubmitWithTimeout 提交一个带超时的任务
 	// 如果任务执行时间超过 timeout,会被自动取消

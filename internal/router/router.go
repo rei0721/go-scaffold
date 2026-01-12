@@ -149,6 +149,10 @@ func (r *Router) registerRoutes() {
 			// 验证用户凭证并返回 token
 			users.POST("/login", r.userHandler.Login)
 
+			// users.POST("/login", func(ctx *gin.Context) {
+			// 	r.userHandler.Login(ctx)
+			// })
+
 			// GET /api/v1/users/:id - 获取指定用户
 			// :id 是路径参数,例如 /api/v1/users/123
 			// RESTful 风格:使用 GET + ID 获取单个资源

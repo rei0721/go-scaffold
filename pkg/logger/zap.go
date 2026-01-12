@@ -1,8 +1,10 @@
 package logger
 
 import (
+	"fmt"
 	"os"
 	"strings"
+	"sync"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -26,10 +28,19 @@ var _ Logger = (*zapLogger)(nil)
 // - 性能略低于 Logger,但仍然很快
 // - 适合大多数场景
 type zapLogger struct {
+	// mu 读写锁,保护并发访问
+	// 读操作(日志记录)使用读锁,允许并发
+	// 写操作(Reload)使用写锁,独占访问
+	mu sync.RWMutex
+
 	// sugar zap 的 SugaredLogger
 	// SugaredLogger 提供了类似 fmt.Printf 的 API
 	// 相比原始的 Logger,牺牲一点性能换取更好的易用性
 	sugar *zap.SugaredLogger
+
+	// config 保存配置用于 Reload 时对比
+	// 也用于确保重载时使用正确的配置
+	config *Config
 }
 
 // New 基于提供的配置创建一个新的 Logger 实例
@@ -45,38 +56,73 @@ type zapLogger struct {
 //
 // 配置过程:
 //  1. 解析日志级别(debug/info/warn/error)
-//  2. 构建编码器(JSON/Console)
-//  3. 构建输出目标(stdout/file)
-//  4. 创建 zap Core
-//  5. 包装为 SugaredLogger
+//  2. 根据输出模式构建 Core:
+//     - stdout: 使用控制台格式
+//     - file: 使用文件格式
+//     - both: 分别为控制台和文件创建 Core,然后合并
+//  3. 创建 zap Logger
+//  4. 包装为 SugaredLogger
 func New(cfg *Config) (Logger, error) {
 	// 1. 解析日志级别
-	// 将字符串(如 "info")转换为 zapcore.Level
-	level := parseLevel(cfg.Level)
+	level := zapParseLevel(parseLevel(cfg.Level))
 
-	// 2. 构建编码器
-	// 根据配置选择 JSON 或 Console 格式
-	encoder := buildEncoder(cfg.Format)
+	output := strings.ToLower(cfg.Output)
 
-	// 3. 构建输出目标
-	// 可以输出到 stdout 或文件
-	writeSyncer := buildWriteSyncer(cfg)
+	// 2. 根据输出模式构建 Core
+	var core zapcore.Core
 
-	// 4. 创建 zap Core
-	// Core 是 zap 的核心组件,组合了编码器、输出和级别
-	core := zapcore.NewCore(encoder, writeSyncer, level)
+	switch output {
+	case OutputStdout:
+		// 仅控制台输出
+		consoleFormat := getConsoleFormat(cfg)
+		encoder := buildEncoder(consoleFormat)
+		writer := zapcore.AddSync(os.Stdout)
+		core = zapcore.NewCore(encoder, writer, level)
 
-	// 5. 创建 Logger
+	case OutputFile:
+		// 仅文件输出
+		fileFormat := getFileFormat(cfg)
+		encoder := buildEncoder(fileFormat)
+		writer := buildFileWriter(cfg)
+		core = zapcore.NewCore(encoder, writer, level)
+
+	case OutputBoth:
+		// 同时输出到控制台和文件,可以使用不同格式
+		consoleFormat := getConsoleFormat(cfg)
+		fileFormat := getFileFormat(cfg)
+
+		// 为控制台创建 Core
+		consoleEncoder := buildEncoder(consoleFormat)
+		consoleWriter := zapcore.AddSync(os.Stdout)
+		consoleCore := zapcore.NewCore(consoleEncoder, consoleWriter, level)
+
+		// 为文件创建 Core
+		fileEncoder := buildEncoder(fileFormat)
+		fileWriter := buildFileWriter(cfg)
+		fileCore := zapcore.NewCore(fileEncoder, fileWriter, level)
+
+		// 使用 Tee 合并多个 Core
+		core = zapcore.NewTee(consoleCore, fileCore)
+
+	default:
+		// 未知模式,降级到控制台输出
+		consoleFormat := getConsoleFormat(cfg)
+		encoder := buildEncoder(consoleFormat)
+		writer := zapcore.AddSync(os.Stdout)
+		core = zapcore.NewCore(encoder, writer, level)
+	}
+
+	// 3. 创建 Logger
 	// zap.AddCaller(): 记录调用者信息(文件名和行号)
 	// zap.AddCallerSkip(1): 跳过 1 层调用栈
 	//   因为我们封装了一层,需要跳过才能显示真实调用者
-	//   例如:不显示 zapLogger.Info,而显示调用 zapLogger.Info 的位置
 	zapLog := zap.New(core, zap.AddCaller(), zap.AddCallerSkip(1))
 
-	// 6. 返回 SugaredLogger
-	// Sugar() 将 Logger 转换为 SugaredLogger
-	// SugaredLogger 提供更友好的 API
-	return &zapLogger{sugar: zapLog.Sugar()}, nil
+	// 4. 返回 SugaredLogger
+	return &zapLogger{
+		sugar:  zapLog.Sugar(),
+		config: cfg,
+	}, nil
 }
 
 // Default 返回一个默认的 Logger
@@ -90,9 +136,9 @@ func New(cfg *Config) (Logger, error) {
 // - 简单应用
 func Default() Logger {
 	cfg := &Config{
-		Level:  "info",    // 默认 info 级别,不记录 debug
-		Format: "console", // 控制台格式,易读
-		Output: "stdout",  // 输出到标准输出
+		Level:  DefaultLevel,  // 默认 debug 级别
+		Format: DefaultFormat, // 控制台格式,易读
+		Output: DefaultOutput, // 输出到标准输出
 	}
 	// 忽略错误,因为默认配置不会失败
 	log, _ := New(cfg)
@@ -116,23 +162,23 @@ func Default() Logger {
 //	warn/warning: 警告信息
 //	error: 错误信息
 //	默认: info(如果输入无效)
-func parseLevel(level string) zapcore.Level {
+func zapParseLevel(level Level) zapcore.Level {
 	// ToLower 确保不区分大小写
-	switch strings.ToLower(level) {
-	case "debug":
+	switch level {
+	case LevelDebug:
 		// 调试级别,最详细
 		// 包含所有日志(debug, info, warn, error)
 		return zapcore.DebugLevel
-	case "info":
+	case LevelInfo:
 		// 信息级别,生产环境默认
 		// 包含 info, warn, error
 		return zapcore.InfoLevel
-	case "warn", "warning":
+	case LevelWarn:
 		// 警告级别
 		// 包含 warn, error
 		// 支持两种拼写
 		return zapcore.WarnLevel
-	case "error":
+	case LevelError:
 		// 错误级别,只记录错误
 		return zapcore.ErrorLevel
 	default:
@@ -173,7 +219,7 @@ func buildEncoder(format string) zapcore.Encoder {
 		CallerKey: "caller",
 
 		// MessageKey: 日志消息字段的键名
-		MessageKey: "msg",
+		MessageKey: "message",
 
 		// StacktraceKey: 堆栈跟踪字段的键名
 		// 只在 error 级别及以上时添加
@@ -220,8 +266,71 @@ func buildEncoder(format string) zapcore.Encoder {
 	return zapcore.NewConsoleEncoder(encoderConfig)
 }
 
+// getConsoleFormat 获取控制台输出的格式
+// 优先使用 ConsoleFormat,如果未设置则使用 Format
+// 参数:
+//
+//	cfg: 日志配置
+//
+// 返回:
+//
+//	string: 格式名称
+func getConsoleFormat(cfg *Config) string {
+	if cfg.ConsoleFormat != "" {
+		return cfg.ConsoleFormat
+	}
+	if cfg.Format != "" {
+		return cfg.Format
+	}
+	return DefaultFormat
+}
+
+// getFileFormat 获取文件输出的格式
+// 优先使用 FileFormat,如果未设置则使用 Format
+// 参数:
+//
+//	cfg: 日志配置
+//
+// 返回:
+//
+//	string: 格式名称
+func getFileFormat(cfg *Config) string {
+	if cfg.FileFormat != "" {
+		return cfg.FileFormat
+	}
+	if cfg.Format != "" {
+		return cfg.Format
+	}
+	return DefaultFormat
+}
+
+// buildFileWriter 构建文件输出写入器
+// 使用 lumberjack 进行日志轮转
+// 参数:
+//
+//	cfg: 日志配置
+//
+// 返回:
+//
+//	zapcore.WriteSyncer: 文件写入同步器
+func buildFileWriter(cfg *Config) zapcore.WriteSyncer {
+	if cfg.FilePath == "" {
+		// 如果没有配置文件路径,降级到 stdout
+		return zapcore.AddSync(os.Stdout)
+	}
+
+	lj := &lumberjack.Logger{
+		Filename:   cfg.FilePath,
+		MaxSize:    cfg.MaxSize,
+		MaxBackups: cfg.MaxBackups,
+		MaxAge:     cfg.MaxAge,
+		Compress:   true,
+	}
+	return zapcore.AddSync(lj)
+}
+
 // buildWriteSyncer 构建日志输出目标
-// 决定日志写入到哪里(文件或标准输出)
+// 决定日志写入到哪里(文件或标准输出或两者)
 // 参数:
 //
 //	cfg: 日志配置
@@ -230,12 +339,16 @@ func buildEncoder(format string) zapcore.Encoder {
 //
 //	zapcore.WriteSyncer: zap 输出同步器
 //
-// 两种输出方式:
-//   - 文件: 持久化,支持轮转
-//   - stdout: 实时查看,容器友好
+// 三种输出方式:
+//   - stdout: 仅标准输出,实时查看,容器友好
+//   - file: 仅文件,持久化,支持轮转
+//   - both: 同时输出到文件和标准输出
 func buildWriteSyncer(cfg *Config) zapcore.WriteSyncer {
-	// 检查是否配置为文件输出
-	if strings.ToLower(cfg.Output) == "file" && cfg.FilePath != "" {
+	output := strings.ToLower(cfg.Output)
+
+	// 创建文件输出同步器(如果需要)
+	var fileWriter zapcore.WriteSyncer
+	if (output == OutputFile || output == OutputBoth) && cfg.FilePath != "" {
 		// 使用 lumberjack 进行日志轮转
 		// lumberjack 是一个流行的 Go 日志轮转库
 		// 功能:
@@ -264,51 +377,94 @@ func buildWriteSyncer(cfg *Config) zapcore.WriteSyncer {
 			// false: 不压缩,便于直接查看
 			Compress: true,
 		}
-		// 包装为 WriteSyncer
-		return zapcore.AddSync(lj)
+		fileWriter = zapcore.AddSync(lj)
 	}
 
-	// 默认输出到标准输出
-	// 适合:
-	// - 开发环境(直接在终端查看)
-	// - 容器环境(日志收集器会捕获 stdout)
-	// - K8s 环境(kubectl logs)
-	return zapcore.AddSync(os.Stdout)
+	// 根据输出模式返回相应的 WriteSyncer
+	switch output {
+	case OutputFile:
+		// 仅输出到文件
+		if fileWriter != nil {
+			return fileWriter
+		}
+		// 如果文件配置无效,降级到 stdout
+		return zapcore.AddSync(os.Stdout)
+
+	case OutputBoth:
+		// 同时输出到文件和控制台
+		if fileWriter != nil {
+			// 使用 NewMultiWriteSyncer 同时写入多个目标
+			return zapcore.NewMultiWriteSyncer(
+				fileWriter,
+				zapcore.AddSync(os.Stdout),
+			)
+		}
+		// 如果文件配置无效,降级到 stdout
+		return zapcore.AddSync(os.Stdout)
+
+	default:
+		// stdout 或其他未知值,默认输出到标准输出
+		// 适合:
+		// - 开发环境(直接在终端查看)
+		// - 容器环境(日志收集器会捕获 stdout)
+		// - K8s 环境(kubectl logs)
+		return zapcore.AddSync(os.Stdout)
+	}
 }
 
 // Debug 记录调试级别的日志
 // 实现 Logger 接口
+// 使用读锁保护,允许并发日志记录
 func (l *zapLogger) Debug(msg string, keysAndValues ...interface{}) {
 	// Debugw: "w" 表示 "with",支持键值对参数
 	// 例如: Debug("processing", "userId", 123, "action", "login")
-	l.sugar.Debugw(msg, keysAndValues...)
+	l.mu.RLock()
+	sugar := l.sugar
+	l.mu.RUnlock()
+	sugar.Debugw(msg, keysAndValues...)
 }
 
 // Info 记录信息级别的日志
 // 实现 Logger 接口
+// 使用读锁保护,允许并发日志记录
 func (l *zapLogger) Info(msg string, keysAndValues ...interface{}) {
-	l.sugar.Infow(msg, keysAndValues...)
+	l.mu.RLock()
+	sugar := l.sugar
+	l.mu.RUnlock()
+	sugar.Infow(msg, keysAndValues...)
 }
 
 // Warn 记录警告级别的日志
 // 实现 Logger 接口
+// 使用读锁保护,允许并发日志记录
 func (l *zapLogger) Warn(msg string, keysAndValues ...interface{}) {
-	l.sugar.Warnw(msg, keysAndValues...)
+	l.mu.RLock()
+	sugar := l.sugar
+	l.mu.RUnlock()
+	sugar.Warnw(msg, keysAndValues...)
 }
 
 // Error 记录错误级别的日志
 // 实现 Logger 接口
+// 使用读锁保护,允许并发日志记录
 func (l *zapLogger) Error(msg string, keysAndValues ...interface{}) {
-	l.sugar.Errorw(msg, keysAndValues...)
+	l.mu.RLock()
+	sugar := l.sugar
+	l.mu.RUnlock()
+	sugar.Errorw(msg, keysAndValues...)
 }
 
 // Fatal 记录致命错误并退出程序
 // 实现 Logger 接口
 // 警告: 会调用 os.Exit(1),终止程序
+// 使用读锁保护,允许并发日志记录
 func (l *zapLogger) Fatal(msg string, keysAndValues ...interface{}) {
 	// Fatalw 会先记录日志,然后调用 os.Exit(1)
 	// 使用场景: 无法恢复的严重错误
-	l.sugar.Fatalw(msg, keysAndValues...)
+	l.mu.RLock()
+	sugar := l.sugar
+	l.mu.RUnlock()
+	sugar.Fatalw(msg, keysAndValues...)
 }
 
 // With 返回一个新的 Logger,添加了给定的键值对到上下文
@@ -335,7 +491,14 @@ func (l *zapLogger) Fatal(msg string, keysAndValues ...interface{}) {
 func (l *zapLogger) With(keysAndValues ...interface{}) Logger {
 	// sugar.With 创建一个新的 SugaredLogger
 	// 不会修改原始 logger,而是返回新实例
-	return &zapLogger{sugar: l.sugar.With(keysAndValues...)}
+	l.mu.RLock()
+	sugar := l.sugar
+	config := l.config
+	l.mu.RUnlock()
+	return &zapLogger{
+		sugar:  sugar.With(keysAndValues...),
+		config: config,
+	}
 }
 
 // Sync 刷新缓冲的日志条目
@@ -357,5 +520,68 @@ func (l *zapLogger) Sync() error {
 	// 注意: 在某些平台上(如 Linux)可能返回无害的错误
 	// 例如: sync /dev/stdout: invalid argument
 	// 这些错误通常可以忽略
-	return l.sugar.Sync()
+	l.mu.RLock()
+	sugar := l.sugar
+	l.mu.RUnlock()
+	return sugar.Sync()
+}
+
+// Reload 使用新配置重新加载日志系统
+// 实现 Reloader 接口
+// 这个方法允许在运行时热更新日志配置,无需重启应用
+// 使用场景:
+//   - 配置文件变更时自动重载
+//   - 动态调整日志级别
+//   - 切换日志输出目标
+//
+// 参数:
+//
+//	cfg: 新的日志配置
+//
+// 返回:
+//
+//	error: 重载失败时的错误
+//
+// 并发安全:
+//   - 使用写锁保护,确保重载过程原子性
+//   - 失败时保持原有 logger 不变
+//   - 新 logger 创建成功后才替换旧 logger
+func (l *zapLogger) Reload(cfg *Config) error {
+	// 1. 在锁外创建新的 logger 实例
+	// 避免长时间持有锁,提高并发性能
+	newLogger, err := New(cfg)
+	if err != nil {
+		return fmt.Errorf(ErrMsgReloadFailed, err)
+	}
+
+	// 2. 获取写锁,开始原子替换操作
+	// 写锁确保:
+	// - 没有其他 goroutine 正在读取 sugar
+	// - 没有其他 goroutine 正在执行 Reload
+	l.mu.Lock()
+
+	// 保存旧 sugar 的引用,用于后续同步
+	oldSugar := l.sugar
+
+	// 3. 原子地替换 logger 实例
+	// 将新 logger 的内部字段复制到当前实例
+	// 这样外部持有的 Logger 接口引用仍然有效
+	newZapLogger := newLogger.(*zapLogger)
+	l.sugar = newZapLogger.sugar
+	l.config = cfg
+
+	// 4. 释放写锁
+	// 新 logger 已替换完成,其他 goroutine 可以使用新 logger
+	l.mu.Unlock()
+
+	// 5. 同步旧 logger
+	// 在锁外执行,避免长时间持有锁
+	// 确保旧 logger 的缓冲日志被刷新到磁盘
+	if oldSugar != nil {
+		// 忽略 Sync 错误,因为旧 logger 已被替换
+		// 某些平台上 Sync 可能返回无害的错误
+		_ = oldSugar.Sync()
+	}
+
+	return nil
 }

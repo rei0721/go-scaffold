@@ -15,5 +15,5 @@ const (
 	// EnvConfigPathName 是配置文件路径的环境变量名称
 	// 首先尝试从环境变量 CONFIG_PATH 读取配置文件路径
 	// 这样做是为了支持不同环境(开发、测试、生产)使用不同的配置文件
-	EnvConfigPathName = "CONFIG_PATH"
+	EnvConfigPathName = "REI_CONFIG_PATH"
 )

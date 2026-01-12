@@ -4,6 +4,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/panjf2000/ants/v2"
 )
 
@@ -104,6 +105,23 @@ func (s *antsScheduler) Submit(ctx context.Context, task func(context.Context)) 
 		default:
 		}
 		task(ctx)
+	})
+}
+
+// http
+func (s *antsScheduler) SubmitWithHTTP(ctx context.Context, task func(context.Context, *gin.Context)) error {
+	if ctx == nil {
+		ctx = context.Background()
+	}
+
+	return s.pool.Submit(func() {
+		// Check if context is already cancelled before executing
+		select {
+		case <-ctx.Done():
+			return
+		default:
+		}
+		task(ctx, nil)
 	})
 }
 

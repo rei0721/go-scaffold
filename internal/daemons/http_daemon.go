@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/rei0721/rei0721/pkg/daemon"
+	"github.com/rei0721/rei0721/pkg/scheduler"
 )
 
 // HTTPDaemon HTTP 服务器守护进程
@@ -30,6 +31,8 @@ type HTTPDaemon struct {
 	// logger 日志记录器
 	// 用于记录服务器的启动、停止和错误信息
 	logger daemon.Logger
+
+	scheduler scheduler.Scheduler
 
 	// name 守护进程名称
 	// 用于日志记录和错误报告
@@ -69,7 +72,14 @@ type HTTPDaemon struct {
 //	    w.Write([]byte("pong"))
 //	})
 //	httpDaemon := NewHTTPDaemon(":8080", mux, logger)
-func NewHTTPDaemon(addr string, ReadTimeout, WriteTimeout int, handler http.Handler, logger daemon.Logger) *HTTPDaemon {
+func NewHTTPDaemon(addr string, ReadTimeout, WriteTimeout int, sched scheduler.Scheduler, handler http.Handler, logger daemon.Logger) *HTTPDaemon {
+
+	// schedHandler := &SchedServeHTTP{
+	// 	handler: handler,
+	// 	sched:   sched,
+	// 	logger:  logger,
+	// }
+
 	return &HTTPDaemon{
 		// 创建 HTTP 服务器实例
 		server: &http.Server{
@@ -218,4 +228,30 @@ func (d *HTTPDaemon) Stop(ctx context.Context) error {
 	// 关闭成功
 	d.logger.Info("HTTP server stopped successfully")
 	return nil
+}
+
+type SchedServeHTTP struct {
+	sched   scheduler.Scheduler
+	logger  daemon.Logger
+	handler http.Handler
+}
+
+func (s *SchedServeHTTP) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	// 提交普通任务
+	err := s.sched.Submit(context.Background(), func(taskCtx context.Context) {
+		// 执行异步操作
+		fmt.Println("Task is running")
+
+		// 检查上下文是否被取消
+		select {
+		case <-taskCtx.Done():
+			s.handler.ServeHTTP(w, r)
+			return
+		default:
+			// 继续执行
+		}
+	})
+	if err != nil {
+		s.logger.Error("Submit task failed:", "error", err)
+	}
 }

@@ -3,6 +3,7 @@ package database
 import (
 	"database/sql"
 	"fmt"
+	"sync"
 	"time"
 
 	"gorm.io/driver/mysql"
@@ -17,9 +18,17 @@ import (
 // - 同时持有 GORM 和标准库的 sql.DB
 // - GORM 用于 ORM 操作
 // - sql.DB 用于连接池管理和健康检查
+// - 使用 RWMutex 保证并发安全
 type database struct {
+	// mu 读写锁,保护 db 和 sqlDB 字段的并发访问
+	// 使用 RWMutex 而不是 Mutex:
+	// - 读操作(DB, Ping)使用读锁,允许并发读取
+	// - 写操作(Reload)使用写锁,独占访问
+	mu sync.RWMutex
+
 	// db GORM 数据库实例
 	// 用于执行所有 ORM 操作(查询、创建、更新、删除)
+	// 必须在持有锁的情况下访问
 	db *gorm.DB
 
 	// sqlDB 标准库的 sql.DB 实例
@@ -27,13 +36,17 @@ type database struct {
 	// - 配置连接池参数
 	// - 执行 Ping 健康检查
 	// - 关闭数据库连接
+	// 必须在持有锁的情况下访问
 	sqlDB *sql.DB
 }
 
 // DB 返回底层的 GORM 数据库实例
 // 实现 Database 接口
 // Repository 层会使用这个方法获取 DB 进行查询
+// 使用读锁保护,确保并发安全
 func (d *database) DB() *gorm.DB {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
 	return d.db
 }
 
@@ -46,6 +59,9 @@ func (d *database) DB() *gorm.DB {
 //
 //	调用后数据库实例不可再使用
 func (d *database) Close() error {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
 	if d.sqlDB != nil {
 		// 关闭底层的 sql.DB
 		// 这会关闭所有连接池中的连接
@@ -64,11 +80,88 @@ func (d *database) Close() error {
 //
 //	error: 如果连接失败或超时
 func (d *database) Ping() error {
+	d.mu.RLock()
+	defer d.mu.RUnlock()
+
 	if d.sqlDB != nil {
 		// 执行 ping 操作
 		// 会建立一个测试连接并立即关闭
 		return d.sqlDB.Ping()
 	}
+	return nil
+}
+
+// Reload 使用新配置重新加载数据库连接
+// 实现 Reloader 接口
+// 这个方法允许在运行时热更新数据库配置,无需重启应用
+// 使用场景:
+// - 配置文件变更时自动重载
+// - 动态调整连接池参数
+// - 切换数据库端点
+// 参数:
+//
+//	cfg: 新的数据库配置
+//
+// 返回:
+//
+//	error: 重载失败时的错误
+//
+// 并发安全:
+// - 使用写锁保护,确保重载过程原子性
+// - 失败时保持原有连接不变
+// - 新连接建立成功后才关闭旧连接
+// - 确保过渡期间服务不中断
+func (d *database) Reload(cfg *Config) error {
+	// 1. 使用新配置创建新的数据库实例
+	// 在锁外创建,避免长时间持有锁
+	// 不带 hooks,因为 hooks 在初始化时已注册
+	// 如果需要重新注册 hooks,可以扩展此方法接受 hooks 参数
+	newDB, err := New(cfg)
+	if err != nil {
+		// 新连接创建失败,保持原连接不变
+		return fmt.Errorf("failed to create new database connection: %w", err)
+	}
+
+	// 2. 验证新连接是否可用
+	// 执行 Ping 测试,确保新连接确实可用
+	if err := newDB.Ping(); err != nil {
+		// 新连接不可用,关闭它并返回错误
+		_ = newDB.Close()
+		return fmt.Errorf("new database connection ping failed: %w", err)
+	}
+
+	// 3. 获取写锁,开始原子替换操作
+	// 写锁确保:
+	// - 没有其他 goroutine 正在读取 db/sqlDB
+	// - 没有其他 goroutine 正在执行 Reload
+	d.mu.Lock()
+
+	// 保存旧连接的引用,用于后续关闭
+	oldSQLDB := d.sqlDB
+
+	// 4. 原子地替换数据库实例
+	// 将新连接的内部字段复制到当前实例
+	// 这样外部持有的 Database 接口引用仍然有效
+	newDBImpl := newDB.(*database)
+	d.db = newDBImpl.db
+	d.sqlDB = newDBImpl.sqlDB
+
+	// 5. 释放写锁
+	// 新连接已替换完成,其他 goroutine 可以使用新连接
+	d.mu.Unlock()
+
+	// 6. 优雅关闭旧连接
+	// 在锁外关闭,避免长时间持有锁
+	// 这会关闭所有旧连接池中的连接
+	// 注意: 可能仍有进行中的查询使用旧连接,但 sql.DB 会处理这种情况
+	if oldSQLDB != nil {
+		if err := oldSQLDB.Close(); err != nil {
+			// 旧连接关闭失败,只记录错误
+			// 不影响新连接的使用
+			return fmt.Errorf("warning: failed to close old database connection: %w", err)
+		}
+	}
+
 	return nil
 }
 

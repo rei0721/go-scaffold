@@ -102,6 +102,27 @@ type Config struct {
 	MaxLifetime time.Duration `mapstructure:"maxLifetime"`
 }
 
+// Reloader 定义数据库配置重载接口
+// 允许在运行时动态更新数据库配置,无需重启应用
+// 使用场景:
+// - 配置文件热更新
+// - 动态调整连接池参数
+// - 切换数据库端点
+// - 更新 SSL/TLS 配置
+type Reloader interface {
+	// Reload 使用新配置重新加载数据库连接
+	// 步骤:
+	// 1. 验证新配置的有效性
+	// 2. 优雅关闭现有连接
+	// 3. 使用新配置建立连接
+	// 4. 重新配置连接池
+	// 参数:
+	//   cfg: 新的数据库配置
+	// 返回:
+	//   error: 重载失败时的错误(失败时保持原连接)
+	Reload(cfg *Config) error
+}
+
 // Database 定义数据库操作的接口
 // 这是一个抽象接口,隐藏了具体的数据库实现
 // 好处:
@@ -134,6 +155,10 @@ type Database interface {
 	// 返回:
 	//   error: 如果连接失败或不可用
 	Ping() error
+
+	// Reloader 嵌入重载接口
+	// 支持数据库配置的热更新
+	Reloader
 }
 
 // Hook 定义数据库操作的回调接口

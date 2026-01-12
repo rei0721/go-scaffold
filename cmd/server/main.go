@@ -24,6 +24,7 @@ const (
 )
 
 func main() {
+
 	// 1. 获取配置文件路径
 	// 首先尝试从环境变量 `constants.EnvConfigPathName` 读取配置文件路径
 	// 这样做是为了支持不同环境(开发、测试、生产)使用不同的配置文件
@@ -35,8 +36,7 @@ func main() {
 	}
 
 	// 2. 初始化应用程序容器
-	// app.New() 会按照依赖顺序初始化所有组件:
-	// config → logger → database → scheduler → repository → service → handler → router
+	// app.New() 会按照依赖顺序初始化所有组件
 	// 使用依赖注入容器模式来管理组件生命周期
 	application, err := app.New(app.Options{
 		ConfigPath: configPath,
