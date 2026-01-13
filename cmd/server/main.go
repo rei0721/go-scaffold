@@ -4,11 +4,13 @@ package main
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"os/signal"
 	"syscall"
 
 	"github.com/rei0721/rei0721/internal/app"
+	"github.com/rei0721/rei0721/pkg/cli"
 	"github.com/rei0721/rei0721/types/constants"
 )
 
@@ -23,7 +25,63 @@ const (
 	shutdownTimeout = constants.ShutdownTimeout
 )
 
+type DevCommand struct{}
+
+func (c *DevCommand) Name() string {
+	return "dev"
+}
+
+func (c *DevCommand) Description() string {
+	return "Dev mode"
+}
+
+func (c *DevCommand) Usage() string {
+	return "dev [--config=<name>]"
+}
+
+func (c *DevCommand) Flags() []cli.Flag {
+	return []cli.Flag{
+		{
+			Name:        "config",
+			ShortName:   "c",
+			Type:        cli.FlagTypeString,
+			Default:     "configs/config.yaml",
+			Description: "Config file path",
+			EnvVar:      "REI_CONFIG_PATH", // 支持环境变量
+		},
+	}
+}
+
+func (c *DevCommand) Execute(ctx *cli.Context) error {
+	configPath := ctx.GetString("config")
+
+	fmt.Fprintf(ctx.Stdout, "Dev Config Path = %s\n",
+		configPath)
+
+	// 业务逻辑...
+	run()
+
+	return nil
+}
+
 func main() {
+	// 创建 CLI 应用
+	app := cli.NewApp("go-scaffold")
+	app.SetVersion("0.1.2")
+	app.SetDescription("This is a go backend scaffold")
+
+	// 注册命令
+	app.AddCommand(&DevCommand{})
+
+	// 执行
+	if err := app.Run(os.Args[1:]); err != nil {
+		fmt.Fprintln(os.Stderr, err)
+		os.Exit(cli.GetExitCode(err))
+	}
+
+}
+
+func run() {
 
 	// 1. 获取配置文件路径
 	// 首先尝试从环境变量 `constants.EnvConfigPathName` 读取配置文件路径
