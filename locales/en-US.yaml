@@ -1,43 +1,28 @@
-# English (United States) Translation File
-# Format: messageID: translation text
-# Template variables use {{.VariableName}} syntax
+# English language pack
+success: Operation successful
 
-# Welcome messages
-welcome.message: Welcome to our application
-welcome.back: Welcome back, {{.Name}}!
+# Parameter errors 1000-1999
+err_invalid_params: Invalid parameters
+err_invalid_username: Invalid username format
+err_invalid_email: Invalid email format
+err_invalid_password: Invalid password format
 
-# User related messages
-user.greeting: Hello, {{.Name}}!
-user.profile: "{{.Name}}'s Profile"
-user.registered: User {{.Name}} has been registered for {{.Days}} days
+# Business errors 2000-2999
+err_business_logic: Business logic error
+err_duplicate_username: Username already exists
+err_duplicate_email: Email already exists
 
-# Error messages
-error.user_not_found: User not found
-error.invalid_params: Invalid parameters
-error.invalid_username: Invalid username format
-error.invalid_email: Invalid email format
-error.invalid_password: Invalid password format
-error.duplicate_username: Username already exists
-error.duplicate_email: Email already registered
-error.unauthorized: Unauthorized access
-error.permission_denied: Permission denied
-error.internal_server: Internal server error
-error.database_error: Database error
+# Auth errors 3000-3999
+err_unauthorized: Unauthorized
+err_invalid_token: Invalid token
+err_token_expired: Token expired
+err_permission_denied: Permission denied
 
-# Success messages
-success.user_created: User created successfully
-success.user_updated: User profile updated successfully
-success.user_deleted: User deleted successfully
-success.login: Login successful
-success.logout: Logout successful
+# Resource errors 4000-4999
+err_resource_not_found: Resource not found
+err_user_not_found: User not found
 
-# Validation messages
-validation.required: This field is required
-validation.min_length: Minimum length is {{.Min}} characters
-validation.max_length: Maximum length is {{.Max}} characters
-validation.email_format: Please enter a valid email address
-validation.password_strength: Password is too weak, at least 8 characters required
-
-# Confirmation messages
-confirm.delete_user: Are you sure you want to delete user {{.Name}}?
-confirm.logout: Are you sure you want to logout?
+# System errors 5000-5999
+err_internal_server: Internal server error
+err_database_error: Database error
+err_cache_error: Cache error

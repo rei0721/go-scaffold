@@ -1,344 +1,264 @@
 package sqlgen
 
 import (
-	"context"
-	"database/sql"
-	"fmt"
-	"path/filepath"
+	"reflect"
 	"strings"
+	"sync"
 )
 
-// generator SQL 代码生成器实现
-type generator struct {
-	config   *Config
-	parser   Parser
-	template TemplateEngine
-	writer   FileWriter
+// ============================================================================
+// Generator 主结构
+// ============================================================================
+
+// Generator SQL 生成器主结构
+// 提供类似 GORM 的链式 API，但返回 SQL 字符串而非执行 SQL
+type Generator struct {
+	config  *Config
+	dialect DialectHandler
+	ctx     *QueryContext
+	mu      sync.RWMutex
 }
 
-// ParserFactory 解析器工厂函数类型
-type ParserFactory func(dbType DatabaseType) (Parser, error)
-
-// TemplateFactory 模板引擎工厂函数类型
-type TemplateFactory func() TemplateEngine
-
-// DefaultParserFactory 默认解析器工厂 (需要在外部设置)
-var DefaultParserFactory ParserFactory
-
-// DefaultTemplateFactory 默认模板引擎工厂 (需要在外部设置)
-var DefaultTemplateFactory TemplateFactory
-
-// NewGenerator 创建代码生成器
-func NewGenerator(config *Config) (Generator, error) {
-	if config == nil {
-		config = DefaultConfig()
+// New 创建新的 SQL 生成器
+func New(cfg *Config) *Generator {
+	if cfg == nil {
+		cfg = DefaultConfig()
 	}
 
-	if err := config.Validate(); err != nil {
-		return nil, err
+	g := &Generator{
+		config: cfg,
+		ctx:    &QueryContext{},
 	}
 
-	// 使用工厂创建解析器
-	if DefaultParserFactory == nil {
-		return nil, fmt.Errorf("parser factory not initialized")
-	}
-	p, err := DefaultParserFactory(config.DatabaseType)
-	if err != nil {
-		return nil, err
-	}
+	// 设置方言处理器
+	g.dialect = getDialect(cfg.Dialect)
 
-	// 使用工厂创建模板引擎
-	var tmpl TemplateEngine
-	if DefaultTemplateFactory != nil {
-		tmpl = DefaultTemplateFactory()
-	}
-
-	return &generator{
-		config:   config,
-		parser:   p,
-		template: tmpl,
-		writer:   NewFileWriter(),
-	}, nil
+	return g
 }
 
-// NewGeneratorWithDeps 创建代码生成器 (带依赖注入)
-func NewGeneratorWithDeps(config *Config, p Parser, t TemplateEngine, w FileWriter) Generator {
-	return &generator{
-		config:   config,
-		parser:   p,
-		template: t,
-		writer:   w,
+// clone 克隆生成器 (用于链式调用)
+func (g *Generator) clone() *Generator {
+	g.mu.RLock()
+	defer g.mu.RUnlock()
+
+	newCtx := *g.ctx
+	return &Generator{
+		config:  g.config,
+		dialect: g.dialect,
+		ctx:     &newCtx,
 	}
 }
 
-// Parse 解析数据库 Schema
-func (g *generator) Parse(ctx context.Context, db *sql.DB) (*Schema, error) {
-	schema, err := g.parser.ParseDatabase(ctx, db)
-	if err != nil {
-		return nil, fmt.Errorf("%w: %v", ErrParseSchema, err)
+// ============================================================================
+// 模型设置方法
+// ============================================================================
+
+// Model 设置模型 (用于不需要数据的操作，如 COUNT)
+func (g *Generator) Model(model interface{}) *Generator {
+	ng := g.clone()
+	ng.ctx.Model = model
+
+	// 解析模型信息
+	if err := ng.parseModel(model); err != nil {
+		// 错误会在后续操作中处理
+		return ng
 	}
 
-	// 应用表过滤
-	schema.Tables = g.filterTables(schema.Tables)
-
-	return schema, nil
+	return ng
 }
 
-// Generate 生成代码到指定目录
-func (g *generator) Generate(ctx context.Context, schema *Schema, outputDir string) error {
-	if outputDir == "" {
-		outputDir = g.config.OutputDir
+// parseModel 解析模型信息
+func (g *Generator) parseModel(model interface{}) error {
+	if model == nil {
+		return ErrInvalidModel
 	}
 
-	for _, table := range schema.Tables {
-		if err := g.GenerateTable(ctx, table, outputDir); err != nil {
-			return err
+	t := reflect.TypeOf(model)
+	v := reflect.ValueOf(model)
+
+	// 处理指针
+	if t.Kind() == reflect.Ptr {
+		t = t.Elem()
+		v = v.Elem()
+	}
+
+	// 处理切片
+	if t.Kind() == reflect.Slice {
+		t = t.Elem()
+		if t.Kind() == reflect.Ptr {
+			t = t.Elem()
 		}
 	}
 
-	// 生成 DDL/Migration 脚本
-	if g.config.Target.Migration {
-		ddlGen := NewDDLGenerator(g.config)
-		if err := ddlGen.GenerateDDLToFile(schema, ""); err != nil {
-			return err
-		}
+	// 必须是结构体
+	if t.Kind() != reflect.Struct {
+		return ErrInvalidModel
 	}
+
+	g.ctx.ModelType = t
+	g.ctx.ModelValue = v
+	g.ctx.TableName = g.getTableName(model, t)
 
 	return nil
 }
 
-// GenerateTable 生成单个表的代码
-func (g *generator) GenerateTable(ctx context.Context, table *Table, outputDir string) error {
-	// 准备模板数据
-	data := g.prepareTemplateData(table)
+// getTableName 获取表名
+func (g *Generator) getTableName(model interface{}, t reflect.Type) string {
+	// 1. 检查是否实现了 Tabler 接口
+	if tabler, ok := model.(Tabler); ok {
+		return tabler.TableName()
+	}
 
-	// 生成模型
-	if g.config.Target.Model {
-		if err := g.generateModel(data, outputDir); err != nil {
-			return err
+	// 2. 从类型名推断
+	name := t.Name()
+	return toSnakeCase(name) + "s" // 简单的复数化
+}
+
+// ============================================================================
+// 查询条件方法 (链式调用)
+// ============================================================================
+
+// Select 选择特定列
+func (g *Generator) Select(columns ...string) *Generator {
+	ng := g.clone()
+	ng.ctx.SelectColumns = columns
+	return ng
+}
+
+// Omit 忽略特定列
+func (g *Generator) Omit(columns ...string) *Generator {
+	ng := g.clone()
+	ng.ctx.OmitColumns = columns
+	return ng
+}
+
+// Where 添加 WHERE 条件
+func (g *Generator) Where(query interface{}, args ...interface{}) *Generator {
+	ng := g.clone()
+	ng.ctx.WhereConditions = append(ng.ctx.WhereConditions, WhereCondition{
+		Query: query,
+		Args:  args,
+	})
+	return ng
+}
+
+// Order 设置排序
+func (g *Generator) Order(value string) *Generator {
+	ng := g.clone()
+	ng.ctx.OrderBy = value
+	return ng
+}
+
+// Limit 设置 LIMIT
+func (g *Generator) Limit(n int) *Generator {
+	ng := g.clone()
+	ng.ctx.Limit = n
+	return ng
+}
+
+// Offset 设置 OFFSET
+func (g *Generator) Offset(n int) *Generator {
+	ng := g.clone()
+	ng.ctx.Offset = n
+	return ng
+}
+
+// Unscoped 忽略软删除条件
+func (g *Generator) Unscoped() *Generator {
+	ng := g.clone()
+	ng.ctx.Unscoped = true
+	return ng
+}
+
+// ============================================================================
+// 原生 SQL
+// ============================================================================
+
+// Raw 使用原生 SQL
+func (g *Generator) Raw(sql string, args ...interface{}) *RawBuilder {
+	return &RawBuilder{
+		generator: g,
+		sql:       sql,
+		args:      args,
+	}
+}
+
+// RawBuilder 原生 SQL 构建器
+type RawBuilder struct {
+	generator *Generator
+	sql       string
+	args      []interface{}
+}
+
+// Build 构建 SQL
+func (r *RawBuilder) Build() (string, error) {
+	return r.generator.dialect.Interpolate(r.sql, r.args...)
+}
+
+// ============================================================================
+// 接口定义
+// ============================================================================
+
+// Tabler 表名接口 (与 GORM 兼容)
+type Tabler interface {
+	TableName() string
+}
+
+// ============================================================================
+// 辅助函数
+// ============================================================================
+
+// toSnakeCase 将字符串转换为蛇形命名
+func toSnakeCase(s string) string {
+	var result strings.Builder
+	for i, r := range s {
+		if i > 0 && r >= 'A' && r <= 'Z' {
+			result.WriteByte('_')
+		}
+		result.WriteRune(r)
+	}
+	return strings.ToLower(result.String())
+}
+
+// toCamelCase 将字符串转换为小驼峰命名
+func toCamelCase(s string) string {
+	parts := strings.Split(s, "_")
+	for i := 1; i < len(parts); i++ {
+		if len(parts[i]) > 0 {
+			parts[i] = strings.ToUpper(parts[i][:1]) + parts[i][1:]
 		}
 	}
+	return strings.Join(parts, "")
+}
 
-	// 生成 DAO
-	if g.config.Target.DAO {
-		if err := g.generateDAO(data, outputDir); err != nil {
-			return err
+// toPascalCase 将字符串转换为大驼峰命名
+func toPascalCase(s string) string {
+	parts := strings.Split(s, "_")
+	for i := 0; i < len(parts); i++ {
+		if len(parts[i]) > 0 {
+			parts[i] = strings.ToUpper(parts[i][:1]) + parts[i][1:]
 		}
 	}
-
-	return nil
+	return strings.Join(parts, "")
 }
 
-// filterTables 过滤表
-func (g *generator) filterTables(tables []*Table) []*Table {
-	if len(g.config.Tables.Include) == 0 && len(g.config.Tables.Exclude) == 0 {
-		return tables
-	}
-
-	var filtered []*Table
-	for _, t := range tables {
-		// 检查白名单
-		if len(g.config.Tables.Include) > 0 {
-			if !matchAny(t.Name, g.config.Tables.Include) {
-				continue
-			}
-		}
-
-		// 检查黑名单
-		if matchAny(t.Name, g.config.Tables.Exclude) {
-			continue
-		}
-
-		filtered = append(filtered, t)
-	}
-
-	return filtered
+// toKebabCase 将字符串转换为短横线命名
+func toKebabCase(s string) string {
+	return strings.ReplaceAll(toSnakeCase(s), "_", "-")
 }
 
-// matchAny 检查名称是否匹配任意模式
-func matchAny(name string, patterns []string) bool {
-	for _, pattern := range patterns {
-		if matchPattern(name, pattern) {
-			return true
-		}
-	}
-	return false
-}
-
-// matchPattern 简单的通配符匹配
-func matchPattern(name, pattern string) bool {
-	if pattern == "*" {
-		return true
-	}
-	if strings.HasPrefix(pattern, "*") && strings.HasSuffix(pattern, "*") {
-		return strings.Contains(name, pattern[1:len(pattern)-1])
-	}
-	if strings.HasPrefix(pattern, "*") {
-		return strings.HasSuffix(name, pattern[1:])
-	}
-	if strings.HasSuffix(pattern, "*") {
-		return strings.HasPrefix(name, pattern[:len(pattern)-1])
-	}
-	return name == pattern
-}
-
-// prepareTemplateData 准备模板数据
-func (g *generator) prepareTemplateData(table *Table) *TemplateData {
-	structName := ToPascalCase(table.Name)
-	structName = ToSingular(structName)
-
-	// 收集需要的 imports
-	imports := make(map[string]bool)
-
-	// 准备字段信息
-	var columnInfos []*ColumnInfo
-	var insertColumns []*ColumnInfo
-	var updateColumns []*ColumnInfo
-
-	for _, col := range table.Columns {
-		fieldName := ToPascalCase(col.Name)
-
-		info := &ColumnInfo{
-			Column:    col,
-			FieldName: fieldName,
-			JSONTag:   g.buildJSONTag(col),
-			GORMTag:   g.buildGORMTag(col),
-		}
-
-		// 收集 import
-		if imp := getImportsForType(col.GoType); imp != "" {
-			imports[imp] = true
-		}
-
-		columnInfos = append(columnInfos, info)
-
-		// 排除自增主键的插入列
-		if !col.IsAutoIncrement {
-			insertColumns = append(insertColumns, info)
-		}
-
-		// 排除主键的更新列
-		if !col.IsPrimaryKey {
-			updateColumns = append(updateColumns, info)
-		}
-	}
-
-	// 转换 imports map 为 slice
-	var importList []string
-	for imp := range imports {
-		importList = append(importList, imp)
-	}
-
-	return &TemplateData{
-		Header:        GeneratedFileHeader,
-		PackageName:   g.config.PackageName,
-		StructName:    structName,
-		Table:         table,
-		ColumnInfos:   columnInfos,
-		InsertColumns: insertColumns,
-		UpdateColumns: updateColumns,
-		Imports:       importList,
-		Tags:          g.config.Tags,
-		SoftDelete:    g.config.SoftDelete,
-		Timestamp:     g.config.Timestamp,
-		Version:       g.config.Version,
-	}
-}
-
-// TemplateData 模板数据
-type TemplateData struct {
-	Header        string
-	PackageName   string
-	StructName    string
-	Table         *Table
-	ColumnInfos   []*ColumnInfo
-	InsertColumns []*ColumnInfo
-	UpdateColumns []*ColumnInfo
-	Imports       []string
-	Tags          TagOptions
-	SoftDelete    SoftDeleteOptions
-	Timestamp     TimestampOptions
-	Version       VersionOptions
-}
-
-// buildJSONTag 构建 JSON tag
-func (g *generator) buildJSONTag(col *Column) string {
-	name := ToSnakeCase(col.Name)
-	if strings.EqualFold(col.Name, "password") {
-		return "-"
-	}
-	if col.Nullable {
-		return name + ",omitempty"
-	}
-	return name
-}
-
-// buildGORMTag 构建 GORM tag
-func (g *generator) buildGORMTag(col *Column) string {
-	var parts []string
-
-	if col.IsPrimaryKey {
-		parts = append(parts, "primaryKey")
-	}
-	if col.IsAutoIncrement {
-		parts = append(parts, "autoIncrement")
-	}
-	if !col.Nullable && !col.IsPrimaryKey {
-		parts = append(parts, "not null")
-	}
-
-	// 添加类型信息
-	if col.DataType != "" {
-		parts = append(parts, "type:"+col.DataType)
-	}
-
-	return strings.Join(parts, ";")
-}
-
-// generateModel 生成模型文件
-func (g *generator) generateModel(data *TemplateData, outputDir string) error {
-	content, err := g.template.Render("model", data)
-	if err != nil {
-		return &GenerateError{Table: data.Table.Name, Message: "failed to render model", Cause: err}
-	}
-
-	// 输出路径: outputDir/models/table_name.go
-	fileName := ToSnakeCase(data.Table.Name) + ".go"
-	filePath := filepath.Join(outputDir, "models", fileName)
-
-	if err := g.writer.WriteAtomic(filePath, []byte(content)); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// generateDAO 生成 DAO 文件
-func (g *generator) generateDAO(data *TemplateData, outputDir string) error {
-	content, err := g.template.Render("dao", data)
-	if err != nil {
-		return &GenerateError{Table: data.Table.Name, Message: "failed to render dao", Cause: err}
-	}
-
-	// 输出路径: outputDir/dao/table_name_dao.go
-	fileName := ToSnakeCase(data.Table.Name) + "_dao.go"
-	filePath := filepath.Join(outputDir, "dao", fileName)
-
-	if err := g.writer.WriteAtomic(filePath, []byte(content)); err != nil {
-		return err
-	}
-
-	return nil
-}
-
-// getImportsForType 根据 Go 类型返回需要的 import 路径
-func getImportsForType(goType string) string {
-	switch {
-	case strings.Contains(goType, "time.Time"):
-		return "time"
-	case strings.Contains(goType, "json.RawMessage"):
-		return "encoding/json"
+// convertNaming 根据策略转换命名
+func convertNaming(s string, strategy NamingStrategy) string {
+	switch strategy {
+	case SnakeCase:
+		return toSnakeCase(s)
+	case CamelCase:
+		return toCamelCase(s)
+	case PascalCase:
+		return toPascalCase(s)
+	case KebabCase:
+		return toKebabCase(s)
 	default:
-		return ""
+		return s
 	}
 }

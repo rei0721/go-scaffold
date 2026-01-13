@@ -11,17 +11,6 @@ import (
 	"github.com/rei0721/rei0721/types/constants"
 )
 
-const (
-	// defaultConfigPath 是配置文件的默认路径
-	// 当环境变量 CONFIG_PATH 未设置时使用此路径
-	defaultConfigPath = constants.DefaultConfigPath
-
-	// shutdownTimeout 是优雅关闭的最大等待时间
-	// 设置为 30 秒以确保所有正在处理的请求能够完成
-	// 超过此时间后将强制关闭,避免进程无限期等待
-	shutdownTimeout = constants.ShutdownTimeout
-)
-
 type DevCommand struct{}
 
 func (c *DevCommand) Name() string {
@@ -126,7 +115,7 @@ func runServer(configPath string) {
 	// 上下文用于控制优雅关闭的最大等待时间
 	// 如果超过 shutdownTimeout(30秒)仍未完成关闭,将强制退出
 	// 这防止了因某些请求或连接无法正常关闭导致的程序挂起
-	ctx, cancel := context.WithTimeout(context.Background(), shutdownTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.ShutdownTimeout)
 	// defer 确保在函数返回时调用 cancel,释放上下文相关资源
 	// 这是 Go 中管理资源的最佳实践
 	defer cancel()

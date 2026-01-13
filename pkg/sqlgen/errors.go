@@ -1,78 +1,134 @@
 package sqlgen
 
-import (
-	"errors"
-	"fmt"
+import "fmt"
+
+// ============================================================================
+// 错误类型 (Error Types)
+// ============================================================================
+
+// Error 表示 sqlgen 包的错误类型
+type Error struct {
+	Code    ErrorCode
+	Message string
+	Cause   error
+}
+
+// Error 实现 error 接口
+func (e *Error) Error() string {
+	if e.Cause != nil {
+		return fmt.Sprintf("sqlgen: %s: %v", e.Message, e.Cause)
+	}
+	return fmt.Sprintf("sqlgen: %s", e.Message)
+}
+
+// Unwrap 返回底层错误
+func (e *Error) Unwrap() error {
+	return e.Cause
+}
+
+// ============================================================================
+// 错误码 (Error Codes)
+// ============================================================================
+
+// ErrorCode 表示错误码类型
+type ErrorCode int
+
+const (
+	// ErrCodeUnknown 未知错误
+	ErrCodeUnknown ErrorCode = iota
+	// ErrCodeInvalidModel 无效的模型
+	ErrCodeInvalidModel
+	// ErrCodeInvalidDialect 无效的方言
+	ErrCodeInvalidDialect
+	// ErrCodeInvalidSQL 无效的 SQL
+	ErrCodeInvalidSQL
+	// ErrCodeParseFailed 解析失败
+	ErrCodeParseFailed
+	// ErrCodeReflectFailed 反射失败
+	ErrCodeReflectFailed
+	// ErrCodeGenerateFailed 生成失败
+	ErrCodeGenerateFailed
+	// ErrCodeFileIO 文件 I/O 错误
+	ErrCodeFileIO
+	// ErrCodeMissingCondition 缺少条件
+	ErrCodeMissingCondition
+	// ErrCodeEmptyData 空数据
+	ErrCodeEmptyData
 )
 
-// 预定义错误
+// ============================================================================
+// 预定义错误 (Predefined Errors)
+// ============================================================================
+
 var (
-	// ErrDatabaseConnection 数据库连接失败
-	ErrDatabaseConnection = errors.New("database connection failed")
-	// ErrTableNotFound 表不存在
-	ErrTableNotFound = errors.New("table not found")
-	// ErrInvalidConfig 配置无效
-	ErrInvalidConfig = errors.New("invalid configuration")
-	// ErrTemplateRender 模板渲染失败
-	ErrTemplateRender = errors.New("template render failed")
-	// ErrFileWrite 文件写入失败
-	ErrFileWrite = errors.New("file write failed")
-	// ErrUnsupportedDatabase 不支持的数据库类型
-	ErrUnsupportedDatabase = errors.New("unsupported database type")
-	// ErrParseSchema Schema 解析失败
-	ErrParseSchema = errors.New("schema parse failed")
+	// ErrInvalidModel 无效的模型 (必须是结构体指针)
+	ErrInvalidModel = &Error{
+		Code:    ErrCodeInvalidModel,
+		Message: "model must be a pointer to struct",
+	}
+
+	// ErrInvalidDialect 不支持的数据库方言
+	ErrInvalidDialect = &Error{
+		Code:    ErrCodeInvalidDialect,
+		Message: "unsupported dialect",
+	}
+
+	// ErrInvalidSQL 无效的 SQL 语句
+	ErrInvalidSQL = &Error{
+		Code:    ErrCodeInvalidSQL,
+		Message: "invalid SQL statement",
+	}
+
+	// ErrParseFailed SQL 解析失败
+	ErrParseFailed = &Error{
+		Code:    ErrCodeParseFailed,
+		Message: "failed to parse SQL",
+	}
+
+	// ErrMissingCondition 缺少 WHERE 条件 (UPDATE/DELETE 危险操作)
+	ErrMissingCondition = &Error{
+		Code:    ErrCodeMissingCondition,
+		Message: "missing WHERE condition for UPDATE/DELETE",
+	}
+
+	// ErrEmptyData 数据为空
+	ErrEmptyData = &Error{
+		Code:    ErrCodeEmptyData,
+		Message: "data is empty",
+	}
+
+	// ErrNoTableName 无法获取表名
+	ErrNoTableName = &Error{
+		Code:    ErrCodeReflectFailed,
+		Message: "cannot determine table name",
+	}
 )
 
-// ParseError 解析错误
-type ParseError struct {
-	Table   string
-	Column  string
-	Message string
-	Cause   error
-}
+// ============================================================================
+// 错误构造函数 (Error Constructors)
+// ============================================================================
 
-func (e *ParseError) Error() string {
-	if e.Column != "" {
-		return fmt.Sprintf("parse error on table %s column %s: %s", e.Table, e.Column, e.Message)
+// NewError 创建新的错误
+func NewError(code ErrorCode, message string) *Error {
+	return &Error{
+		Code:    code,
+		Message: message,
 	}
-	if e.Table != "" {
-		return fmt.Sprintf("parse error on table %s: %s", e.Table, e.Message)
+}
+
+// WrapError 包装错误
+func WrapError(code ErrorCode, message string, cause error) *Error {
+	return &Error{
+		Code:    code,
+		Message: message,
+		Cause:   cause,
 	}
-	return fmt.Sprintf("parse error: %s", e.Message)
 }
 
-func (e *ParseError) Unwrap() error {
-	return e.Cause
-}
-
-// GenerateError 生成错误
-type GenerateError struct {
-	Table   string
-	File    string
-	Message string
-	Cause   error
-}
-
-func (e *GenerateError) Error() string {
-	if e.File != "" {
-		return fmt.Sprintf("generate error for file %s: %s", e.File, e.Message)
+// IsError 判断是否为 sqlgen 错误
+func IsError(err error, code ErrorCode) bool {
+	if e, ok := err.(*Error); ok {
+		return e.Code == code
 	}
-	if e.Table != "" {
-		return fmt.Sprintf("generate error for table %s: %s", e.Table, e.Message)
-	}
-	return fmt.Sprintf("generate error: %s", e.Message)
-}
-
-func (e *GenerateError) Unwrap() error {
-	return e.Cause
-}
-
-// ConfigError 配置错误
-type ConfigError struct {
-	Field   string
-	Message string
-}
-
-func (e *ConfigError) Error() string {
-	return fmt.Sprintf("config error on field %s: %s", e.Field, e.Message)
+	return false
 }

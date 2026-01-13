@@ -1,168 +1,298 @@
 package sqlgen
 
-import "time"
+import (
+	"reflect"
+	"time"
+)
 
-// Schema 表示数据库 Schema
-// 包含数据库的所有表结构信息
-type Schema struct {
-	// Name 数据库名称
-	Name string
-	// DatabaseType 数据库类型
-	DatabaseType DatabaseType
-	// Tables 表列表
-	Tables []*Table
-	// ParsedAt 解析时间
-	ParsedAt time.Time
+// ============================================================================
+// 配置类型 (Configuration Types)
+// ============================================================================
+
+// Config 保存 SQL 生成器的配置
+type Config struct {
+	// Dialect 数据库方言类型 (MySQL, PostgreSQL, SQLite, SQLServer)
+	Dialect Dialect
+
+	// Pretty 是否格式化输出 (添加缩进和换行)
+	Pretty bool
+
+	// SkipZeroValue 是否跳过零值字段 (用于 UPDATE)
+	SkipZeroValue bool
+
+	// SoftDelete 是否启用软删除 (自动检测 deleted_at 字段)
+	SoftDelete bool
+
+	// AllowEmptyCondition 是否允许无条件的 UPDATE/DELETE
+	AllowEmptyCondition bool
 }
 
-// Table 表示数据库表结构
-type Table struct {
-	// Name 表名
+// DefaultConfig 返回默认配置
+func DefaultConfig() *Config {
+	return &Config{
+		Dialect:             MySQL,
+		Pretty:              false,
+		SkipZeroValue:       true,
+		SoftDelete:          true,
+		AllowEmptyCondition: false,
+	}
+}
+
+// ============================================================================
+// Schema 类型 (DDL 解析结果)
+// ============================================================================
+
+// Schema 表示解析后的表结构
+type Schema struct {
+	// Name 结构体名称 (PascalCase)
 	Name string
+
+	// TableName 表名 (snake_case)
+	TableName string
+
+	// Fields 字段列表
+	Fields []Field
+
 	// Comment 表注释
 	Comment string
-	// Columns 字段列表
-	Columns []*Column
-	// PrimaryKey 主键字段名列表 (支持联合主键)
-	PrimaryKey []string
+
 	// Indexes 索引列表
-	Indexes []*Index
-	// ForeignKeys 外键列表
-	ForeignKeys []*ForeignKey
+	Indexes []Index
+
+	// Package 包名 (用于代码生成)
+	Package string
+
+	// Imports 需要导入的包
+	Imports []string
 }
 
-// Column 表示表字段
-type Column struct {
-	// Name 字段名
+// Field 表示结构体字段
+type Field struct {
+	// Name Go 字段名 (PascalCase)
 	Name string
-	// DataType 数据库原生类型 (如 VARCHAR(255), INT)
-	DataType string
-	// GoType Go 类型 (如 string, int64)
-	GoType string
-	// Nullable 是否可空
-	Nullable bool
-	// DefaultValue 默认值
-	DefaultValue *string
+
+	// Type Go 类型 (如 string, int64, *time.Time)
+	Type string
+
+	// Tags 完整的 struct tag 字符串
+	Tags string
+
+	// Column 对应的数据库列信息
+	Column Column
+
 	// Comment 字段注释
 	Comment string
-	// IsPrimaryKey 是否为主键
-	IsPrimaryKey bool
-	// IsAutoIncrement 是否自增
-	IsAutoIncrement bool
-	// Length 字段长度 (用于 VARCHAR 等)
-	Length int
+}
+
+// Column 表示数据库列定义
+type Column struct {
+	// Name 列名
+	Name string
+
+	// Type SQL 数据类型 (如 VARCHAR(64), BIGINT)
+	Type string
+
+	// GoType 对应的 Go 类型
+	GoType string
+
+	// PrimaryKey 是否为主键
+	PrimaryKey bool
+
+	// AutoIncrement 是否自增
+	AutoIncrement bool
+
+	// NotNull 是否非空
+	NotNull bool
+
+	// Default 默认值
+	Default string
+
+	// Comment 列注释
+	Comment string
+
+	// Size 大小限制 (用于 VARCHAR 等)
+	Size int
+
 	// Precision 精度 (用于 DECIMAL 等)
 	Precision int
+
 	// Scale 小数位数 (用于 DECIMAL 等)
 	Scale int
 }
 
-// Index 表示索引
+// Index 表示数据库索引定义
 type Index struct {
-	// Name 索引名称
+	// Name 索引名
 	Name string
-	// Columns 索引包含的字段名
+
+	// Columns 索引包含的列
 	Columns []string
-	// IsUnique 是否唯一索引
-	IsUnique bool
-	// IsPrimary 是否主键索引
-	IsPrimary bool
+
+	// Unique 是否为唯一索引
+	Unique bool
+
+	// Type 索引类型 (BTREE, HASH 等)
+	Type string
 }
 
-// ForeignKey 表示外键约束
-type ForeignKey struct {
-	// Name 外键名称
-	Name string
-	// Column 本表字段名
-	Column string
-	// RefTable 引用表名
-	RefTable string
-	// RefColumn 引用字段名
-	RefColumn string
-	// OnDelete 删除时的行为 (CASCADE, RESTRICT, SET NULL 等)
-	OnDelete string
-	// OnUpdate 更新时的行为
-	OnUpdate string
+// ============================================================================
+// 查询上下文 (Query Context)
+// ============================================================================
+
+// QueryContext 保存链式调用的上下文状态
+type QueryContext struct {
+	// Model 模型实例
+	Model interface{}
+
+	// ModelType 模型的反射类型
+	ModelType reflect.Type
+
+	// ModelValue 模型的反射值
+	ModelValue reflect.Value
+
+	// TableName 表名
+	TableName string
+
+	// Operation 操作类型
+	Operation OperationType
+
+	// SelectColumns 选择的列
+	SelectColumns []string
+
+	// OmitColumns 忽略的列
+	OmitColumns []string
+
+	// WhereConditions WHERE 条件
+	WhereConditions []WhereCondition
+
+	// OrderBy ORDER BY 子句
+	OrderBy string
+
+	// Limit LIMIT 子句
+	Limit int
+
+	// Offset OFFSET 子句
+	Offset int
+
+	// Unscoped 是否忽略软删除
+	Unscoped bool
+
+	// Updates 更新的值 (用于 UPDATE)
+	Updates interface{}
+
+	// Returning RETURNING 子句 (PostgreSQL)
+	Returning []string
 }
 
-// TableFilter 表过滤配置
-type TableFilter struct {
-	// Include 白名单 (为空则包含所有)
-	Include []string
-	// Exclude 黑名单 (支持通配符 * )
-	Exclude []string
+// WhereCondition 表示 WHERE 条件
+type WhereCondition struct {
+	// Query 条件表达式 (可以是字符串或结构体)
+	Query interface{}
+
+	// Args 参数列表
+	Args []interface{}
 }
 
-// GenerateTarget 生成目标选项
-type GenerateTarget struct {
-	// Model 生成模型
-	Model bool
-	// DAO 生成 DAO
-	DAO bool
-	// Query 生成查询构建器
-	Query bool
-	// Migration 生成迁移脚本
-	Migration bool
-}
+// ============================================================================
+// 逆向生成配置 (Reverse Builder Options)
+// ============================================================================
 
-// TagOptions 标签生成选项
-type TagOptions struct {
-	// JSON 生成 JSON tag
-	JSON bool
-	// GORM 生成 GORM tag
-	GORM bool
-	// Validate 生成 validate tag
-	Validate bool
-}
-
-// SoftDeleteOptions 软删除选项
-type SoftDeleteOptions struct {
-	// Enabled 是否启用
-	Enabled bool
-	// Field 软删除字段名
-	Field string
-}
-
-// TimestampOptions 时间戳选项
-type TimestampOptions struct {
-	// Enabled 是否启用
-	Enabled bool
-	// CreatedField 创建时间字段名
-	CreatedField string
-	// UpdatedField 更新时间字段名
-	UpdatedField string
-}
-
-// VersionOptions 乐观锁版本选项
-type VersionOptions struct {
-	// Enabled 是否启用
-	Enabled bool
-	// Field 版本字段名
-	Field string
-}
-
-// ColumnInfo 用于模板渲染的字段信息
-type ColumnInfo struct {
-	*Column
-	// FieldName Go 字段名 (驼峰)
-	FieldName string
-	// JSONTag JSON 标签
-	JSONTag string
-	// GORMTag GORM 标签
-	GORMTag string
-	// ValidateTag validate 标签
-	ValidateTag string
-}
-
-// TableInfo 用于模板渲染的表信息
-type TableInfo struct {
-	*Table
-	// StructName Go 结构体名
+// ReverseOptions 保存逆向生成的配置选项
+type ReverseOptions struct {
+	// StructName 自定义结构体名称
 	StructName string
-	// PackageName 包名
-	PackageName string
-	// Columns 字段信息列表 (带渲染信息)
-	ColumnInfos []*ColumnInfo
-	// Imports 需要导入的包
+
+	// Package 包名
+	Package string
+
+	// Tags 要生成的 Tag 类型
+	Tags TagType
+
+	// JSONNaming JSON Tag 命名策略
+	JSONNaming NamingStrategy
+
+	// FieldNaming 字段命名策略
+	FieldNaming NamingStrategy
+
+	// TypeMappings 自定义类型映射 (SQL type -> Go type)
+	TypeMappings map[string]string
+
+	// WithComments 是否生成注释
+	WithComments bool
+
+	// WithTableName 是否生成 TableName() 方法
+	WithTableName bool
+
+	// WithSoftDelete 是否识别软删除字段
+	WithSoftDelete bool
+
+	// Imports 额外导入的包
 	Imports []string
+
+	// Template 自定义模板
+	Template string
+
+	// FieldConverter 自定义字段转换器
+	FieldConverter func(col Column) Field
+
+	// BeforeGenerate 生成前钩子
+	BeforeGenerate func(schema *Schema)
+
+	// AfterGenerate 生成后钩子
+	AfterGenerate func(code string) string
+
+	// FileNaming 文件命名策略
+	FileNaming NamingStrategy
+
+	// Overwrite 是否覆盖已存在的文件
+	Overwrite bool
+}
+
+// DefaultReverseOptions 返回默认逆向生成选项
+func DefaultReverseOptions() *ReverseOptions {
+	return &ReverseOptions{
+		Package:        "models",
+		Tags:           TagDefault,
+		JSONNaming:     SnakeCase,
+		FieldNaming:    PascalCase,
+		TypeMappings:   make(map[string]string),
+		WithComments:   true,
+		WithTableName:  true,
+		WithSoftDelete: true,
+		FileNaming:     SnakeCase,
+		Overwrite:      false,
+	}
+}
+
+// ============================================================================
+// 辅助类型 (Helper Types)
+// ============================================================================
+
+// Expr 表示 SQL 表达式 (类似 gorm.Expr)
+type Expr struct {
+	// SQL 表达式字符串
+	SQL string
+
+	// Vars 表达式参数
+	Vars []interface{}
+}
+
+// NewExpr 创建新的 SQL 表达式
+func NewExpr(sql string, vars ...interface{}) *Expr {
+	return &Expr{
+		SQL:  sql,
+		Vars: vars,
+	}
+}
+
+// ============================================================================
+// 时间类型 (Time Types)
+// ============================================================================
+
+// DeletedAt 软删除时间类型 (可为 nil)
+type DeletedAt *time.Time
+
+// IsDeleted 判断是否已删除
+func IsDeleted(t DeletedAt) bool {
+	return t != nil
 }

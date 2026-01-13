@@ -1,56 +1,39 @@
-// Package sqlgen 提供企业级 SQL 代码生成工具库
+// Package sqlgen 提供双向 SQL 生成功能
 //
-// 概述
+// sqlgen 是一个"离线版"的 GORM，支持两种核心功能：
 //
-// sqlgen 是一个通用的 SQL 代码生成器，支持从数据库 Schema 自动生成
-// 类型安全的 Go 模型、DAO 层代码和查询构建器。
+// 1. 正向生成 (Forward): 接收 Go Struct 和链式条件，返回 SQL 字符串
+//   - 完全兼容 GORM API 风格
+//   - 支持 CRUD、DDL、事务、迁移脚本生成
 //
-// 主要特性:
-//   - 多数据库支持: MySQL, PostgreSQL, SQLite
-//   - 类型安全: 自动将 SQL 类型映射为 Go 类型
-//   - 灵活模板: 内置模板 + 支持自定义模板
-//   - 企业特性: 软删除、时间戳、乐观锁
-//   - 原子写入: 确保生成过程中断不会损坏文件
+// 2. 逆向生成 (Reverse): 接收 SQL DDL 脚本，返回 Go Struct 代码
+//   - 支持 CREATE TABLE 解析
+//   - 可配置 Tag、命名策略、类型映射
 //
-// 快速开始
+// # 快速开始
 //
-//	import (
-//	    "context"
-//	    "database/sql"
-//	    "github.com/rei0721/rei0721/pkg/sqlgen"
-//	    _ "github.com/mattn/go-sqlite3"
-//	)
+// 正向生成示例:
 //
-//	func main() {
-//	    db, _ := sql.Open("sqlite3", "mydb.db")
-//	    defer db.Close()
+//	gen := sqlgen.New(&sqlgen.Config{
+//	    Dialect: sqlgen.MySQL,
+//	    Pretty:  false,
+//	})
 //
-//	    config := sqlgen.DefaultConfig()
-//	    config.Target.Model = true
-//	    config.Target.DAO = true
+//	// 生成 INSERT 语句
+//	sql, _ := gen.Create(&user)
 //
-//	    gen, _ := sqlgen.NewGenerator(config)
-//	    schema, _ := gen.Parse(context.Background(), db)
-//	    gen.Generate(context.Background(), schema, "./generated")
-//	}
+//	// 生成 SELECT 语句
+//	sql, _ := gen.Where("status = ?", 1).Find(&users)
 //
-// 配置
+// 逆向生成示例:
 //
-// 使用 Config 结构体配置生成器行为:
-//   - DatabaseType: 数据库类型 (mysql/postgres/sqlite)
-//   - OutputDir: 输出目录
-//   - PackageName: 生成的包名
-//   - Target: 生成目标 (Model/DAO/Query)
-//   - Tags: 标签选项 (JSON/GORM/Validate)
+//	ddl := "CREATE TABLE users (id INT PRIMARY KEY, name VARCHAR(64));"
+//	goCode, _ := gen.ParseSQL(ddl).Generate()
 //
-// 架构
+// # 设计哲学
 //
-//	pkg/sqlgen/
-//	├── parser/      # 数据库 Schema 解析器
-//	├── template/    # 模板引擎
-//	└── *.go         # 核心类型和接口
-//
-// 参见
-//
-// 详细文档请参考 pkg/sqlgen/README.md
+//   - 纯文本工具: 不依赖数据库连接，可在任何环境运行
+//   - GORM 兼容: 利用开发者对 GORM API 的肌肉记忆
+//   - 可扩展性: 支持 Template、Hooks、自定义转换器
+//   - 多方言: 支持 MySQL, PostgreSQL, SQLite, SQL Server
 package sqlgen
