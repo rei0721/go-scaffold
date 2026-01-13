@@ -107,6 +107,7 @@ func New(opts Options) (*App, error) {
 
 	// debug
 	app.Logger.Debug("app initialized drive id", "drive_id", utils.GenerateDeviceID("rei0721"))
+	app.Logger.Debug("app initialized config path", "config_path", opts.ConfigPath)
 
 	// 将日志器注册到配置管理器
 	// 这样配置变更时可以记录日志

@@ -1,0 +1,655 @@
+### 通用 SQL 生成工具库 (General-Purpose SQL Generator)
+
+#### 1. 组件定位
+
+为当前系统 `rei0721` 定制，在 `pkg` 基础库层封装**企业级通用 SQL 代码生成工具库**。该组件旨在作为项目级的数据库开发基础设施，提供统一的、类型安全的 SQL 代码生成能力，适用于 ORM 模型生成、数据库迁移脚本、CRUD 服务代码及数据访问层（DAL）等多种场景。
+
+#### 2. 核心能力 (Core Capabilities)
+
+- **多数据库支持 (Multi-Database Support)**：
+  支持主流关系型数据库（MySQL、PostgreSQL、SQLite、SQL Server），通过统一的抽象层屏蔽方言差异，自动生成适配不同数据库的代码。
+
+- **智能 Schema 解析 (Intelligent Schema Parsing)**：
+  自动连接数据库，读取表结构、字段类型、索引、外键约束等元数据，构建完整的 Schema 模型，支持增量更新检测。
+
+- **类型安全的代码生成 (Type-Safe Code Generation)**：
+  生成强类型的 Go 结构体、查询构建器和 DAO 层代码，确保编译期类型检查，避免运行时 SQL 注入和字段拼写错误。
+
+- **灵活的模板引擎 (Flexible Template Engine)**：
+  内置高性能模板引擎（支持 Go `text/template` 和 `html/template`），支持自定义模板扩展，满足不同团队的代码风格和架构模式需求。
+
+- **增量生成与合并策略 (Incremental Generation)**：
+  支持仅生成变更部分的代码，提供智能合并策略（保留手写代码区域），避免覆盖业务逻辑，确保可持续维护。
+
+- **企业级特性 (Enterprise Features)**：
+  支持命名规范转换（蛇形 ↔ 驼峰）、字段注释同步、JSON Tag 自动生成、软删除支持、乐观锁版本控制等企业开发必备特性。
+
+#### 3. 设计约束 (Design Constraints)
+
+> 为了保证组件的通用性、扩展性与可维护性，需遵守以下约束：
+
+**3.1 架构规范**
+
+- **包路径**：`pkg/sqlgen`。
+- **模块化设计**：采用分层架构，明确职责分离：
+
+  - `pkg/sqlgen/parser`：数据库 Schema 解析层
+  - `pkg/sqlgen/model`：中间模型定义（数据库无关）
+  - `pkg/sqlgen/generator`：代码生成引擎
+  - `pkg/sqlgen/template`：模板管理与渲染
+  - `pkg/sqlgen/config`：配置解析与验证
+
+- **零全局依赖**：严禁使用全局变量存储配置或数据库连接，必须通过 `NewGenerator(config)` 显式实例化。
+
+- **接口定义**：
+  对外暴露的核心接口必须包含以下能力：
+
+```go
+// Generator SQL 代码生成器接口
+type Generator interface {
+    // Parse 解析数据库 Schema
+    Parse(ctx context.Context, conn *sql.DB) (*Schema, error)
+    // Generate 生成代码到指定目录
+    Generate(ctx context.Context, schema *Schema, outputDir string) error
+    // GenerateTable 生成单个表的代码
+    GenerateTable(ctx context.Context, table *Table, outputDir string) error
+}
+
+// Parser 数据库 Schema 解析器接口
+type Parser interface {
+    // ParseDatabase 解析整个数据库
+    ParseDatabase(ctx context.Context, conn *sql.DB) (*Schema, error)
+    // ParseTable 解析单个表
+    ParseTable(ctx context.Context, conn *sql.DB, tableName string) (*Table, error)
+    // GetDatabaseType 获取数据库类型
+    GetDatabaseType() DatabaseType
+}
+
+// TemplateEngine 模板引擎接口
+type TemplateEngine interface {
+    // Render 渲染模板
+    Render(tmpl string, data interface{}) (string, error)
+    // RegisterFunc 注册自定义模板函数
+    RegisterFunc(name string, fn interface{}) error
+}
+
+// Config 生成器配置
+type Config struct {
+    // 数据库配置
+    DatabaseType DatabaseType
+    DSN          string
+
+    // 生成选项
+    OutputDir    string
+    PackageName  string
+    TemplatePath string
+
+    // 命名规范
+    TableNameRule    NamingRule   // 表名转换规则
+    ColumnNameRule   NamingRule   // 字段名转换规则
+
+    // 生成选项
+    GenerateModel    bool         // 生成模型
+    GenerateDAO      bool         // 生成 DAO
+    GenerateQuery    bool         // 生成查询构建器
+    GenerateMigration bool        // 生成迁移脚本
+
+    // 企业特性
+    EnableSoftDelete bool         // 启用软删除
+    SoftDeleteField  string       // 软删除字段名
+    EnableTimestamp  bool         // 自动添加时间戳
+    EnableVersion    bool         // 启用乐观锁版本控制
+
+    // 标签生成
+    GenerateJSONTag  bool         // 生成 JSON tag
+    GenerateGORMTag  bool         // 生成 GORM tag
+    GenerateValidateTag bool      // 生成 validate tag
+}
+```
+
+**3.2 数据库支持规范**
+
+- **连接管理**：
+
+  - 使用标准的 `database/sql` 接口，不依赖特定 ORM。
+  - 支持连接池配置，生成器执行期间复用连接，避免频繁建立连接。
+  - 提供连接测试与健康检查能力。
+
+- **Schema 解析**：
+
+  - **表信息**：表名、注释、引擎类型（InnoDB/MyISAM）、字符集。
+  - **字段信息**：字段名、数据类型、长度、精度、默认值、是否可空、注释。
+  - **索引信息**：主键、唯一索引、普通索引、联合索引、索引顺序。
+  - **关系信息**：外键约束、级联规则（CASCADE/RESTRICT）。
+
+- **类型映射**：
+  制定严格的 SQL 类型到 Go 类型映射表：
+
+| SQL 类型 (MySQL)        | Go 类型             | GORM Tag 示例        |
+| ----------------------- | ------------------- | -------------------- |
+| `INT`, `BIGINT`         | `int64`             | `type:bigint`        |
+| `VARCHAR`, `TEXT`       | `string`            | `type:varchar(255)`  |
+| `DECIMAL(10,2)`         | `decimal.Decimal`   | `type:decimal(10,2)` |
+| `TIMESTAMP`, `DATETIME` | `time.Time`         | `type:datetime`      |
+| `BOOL`, `TINYINT(1)`    | `bool`              | `type:tinyint(1)`    |
+| `JSON`                  | `json.RawMessage`   | `type:json`          |
+| 可空字段 (`NULL`)       | `*T` 或 `sql.NullT` | -                    |
+
+**3.3 代码生成规范**
+
+- **文件组织**：
+
+  ```
+  <output-dir>/
+  ├── models/
+  │   ├── user.go            # User 表模型
+  │   ├── order.go           # Order 表模型
+  │   └── ...
+  ├── dao/
+  │   ├── user_dao.go        # User DAO (数据访问对象)
+  │   └── order_dao.go
+  ├── query/
+  │   ├── user_query.go      # User 查询构建器
+  │   └── order_query.go
+  └── migrations/
+      ├── 20260113_create_user.sql
+      └── 20260113_create_order.sql
+  ```
+
+- **生成规则**：
+
+  - **模型结构体**：
+
+    - 字段按原表顺序生成，主键字段置顶。
+    - 自动添加 `TableName()` 方法返回实际表名。
+    - 支持内嵌通用字段（如 `CreatedAt`, `UpdatedAt`, `DeletedAt`）。
+
+  - **DAO 层**：
+
+    - 生成完整的 CRUD 方法：`Create`, `Update`, `Delete`, `FindByID`, `FindAll`。
+    - 支持事务封装：`WithTx(tx *sql.Tx)` 方法。
+    - 支持批量操作：`BatchInsert`, `BatchUpdate`。
+
+  - **查询构建器**：
+    - 支持链式调用：`Where().OrderBy().Limit().Offset()`。
+    - 类型安全的条件构建：`WhereUserID(id int64)`。
+    - 支持复杂查询：Join、Group By、Having。
+
+- **代码保护机制**：
+  - 使用代码标记（如 `// Code generated by sqlgen. DO NOT EDIT.`）区分生成代码与手写代码。
+  - 支持自定义区域保护：
+    ```go
+    // BEGIN USER CODE
+    // 这里的代码不会被覆盖
+    func (u *User) CustomMethod() {}
+    // END USER CODE
+    ```
+
+**3.4 模板系统规范**
+
+- **内置模板**：
+  提供开箱即用的模板集合：
+
+  - `model.tmpl`：基础模型
+  - `model_gorm.tmpl`：GORM 模型（带 Tag）
+  - `dao.tmpl`：标准 DAO
+  - `dao_gorm.tmpl`：GORM DAO
+  - `query.tmpl`：查询构建器
+  - `migration.tmpl`：迁移脚本
+
+- **模板函数**：
+  注册常用模板函数：
+
+  - `toCamel(s string)`：转驼峰
+  - `toSnake(s string)`：转蛇形
+  - `toPlural(s string)`：转复数
+  - `goType(sqlType string)`：SQL 类型转 Go 类型
+  - `isNullable(col *Column)`：判断字段是否可空
+  - `isPrimaryKey(col *Column)`：判断主键
+
+- **自定义模板**：
+  支持通过配置指定外部模板目录，覆盖内置模板。
+
+**3.5 配置文件规范**
+
+- **配置文件格式**：支持 YAML 和 JSON（优先使用 `sqlgen.yaml`）。
+- **配置示例**：
+
+  ```yaml
+  # sqlgen.yaml
+  database:
+    type: mysql
+    dsn: "user:password@tcp(127.0.0.1:3306)/dbname?charset=utf8mb4&parseTime=True"
+
+  output:
+    dir: "./generated"
+    package: "models"
+
+  naming:
+    table_rule: snake_case # 表名规则
+    column_rule: camel_case # 字段名规则
+
+  generate:
+    model: true
+    dao: true
+    query: true
+    migration: false
+
+  features:
+    soft_delete:
+      enabled: true
+      field: "deleted_at"
+    timestamp:
+      enabled: true
+      created_field: "created_at"
+      updated_field: "updated_at"
+    version:
+      enabled: true
+      field: "version"
+
+  tags:
+    json: true
+    gorm: true
+    validate: true
+
+  templates:
+    custom_dir: "./templates" # 可选：自定义模板目录
+
+  tables:
+    include: # 白名单（为空则生成所有）
+      - users
+      - orders
+    exclude: # 黑名单
+      - temp_*
+      - test_*
+  ```
+
+**3.6 CLI 集成规范**
+
+- **命令结构**：
+
+  ```bash
+  sqlgen generate [flags]
+  sqlgen inspect [table]
+  sqlgen diff [--from=old.sql] [--to=new.sql]
+  ```
+
+- **核心参数**：
+
+  - `--config, -c`：配置文件路径（默认：`./sqlgen.yaml`）
+  - `--dsn`：数据库连接串（覆盖配置文件）
+  - `--output, -o`：输出目录（默认：`./generated`）
+  - `--table, -t`：仅生成指定表（支持逗号分隔多个表）
+  - `--template`：自定义模板路径
+  - `--dry-run`：仅预览生成内容，不写入文件
+  - `--force`：强制覆盖已存在文件
+
+- **使用示例**：
+
+  ```bash
+  # 读取配置文件生成所有表
+  sqlgen generate --config=sqlgen.yaml
+
+  # 仅生成 users 表
+  sqlgen generate --table=users
+
+  # 预览生成内容
+  sqlgen generate --table=users --dry-run
+
+  # 查看表结构
+  sqlgen inspect users
+
+  # 生成迁移脚本（对比差异）
+  sqlgen diff --from=schema_v1.sql --to=schema_v2.sql
+  ```
+
+**3.7 错误处理规范**
+
+- **错误类型定义**：
+
+  ```go
+  var (
+      ErrDatabaseConnection = errors.New("database connection failed")
+      ErrTableNotFound      = errors.New("table not found")
+      ErrInvalidConfig      = errors.New("invalid configuration")
+      ErrTemplateRender     = errors.New("template render failed")
+      ErrFileWrite          = errors.New("file write failed")
+  )
+  ```
+
+- **错误上下文**：
+  所有错误必须携带上下文信息（表名、字段名、文件路径等），便于追踪定位：
+
+  ```go
+  return fmt.Errorf("failed to parse table %s: %w", tableName, err)
+  ```
+
+- **错误恢复**：
+  - 表解析失败时，跳过该表并记录错误，继续处理其他表。
+  - 提供 `--fail-fast` 选项，遇到错误立即终止。
+
+**3.8 可测试性设计**
+
+- **依赖注入**：
+  所有外部依赖（数据库连接、文件系统、模板引擎）通过接口注入，便于 Mock。
+
+- **单元测试示例**：
+
+  ```go
+  func TestGenerateModel(t *testing.T) {
+      // Mock Parser
+      mockParser := &MockParser{
+          tables: []*Table{
+              {Name: "users", Columns: []*Column{...}},
+          },
+      }
+
+      // Mock Template Engine
+      mockTmpl := &MockTemplateEngine{}
+
+      gen := NewGenerator(Config{
+          Parser:   mockParser,
+          Template: mockTmpl,
+          OutputDir: "./testdata/output",
+      })
+
+      schema, err := gen.Parse(context.Background(), nil)
+      assert.NoError(t, err)
+
+      err = gen.Generate(context.Background(), schema, "./testdata/output")
+      assert.NoError(t, err)
+
+      // 验证生成的文件
+      content, _ := os.ReadFile("./testdata/output/models/user.go")
+      assert.Contains(t, string(content), "type User struct")
+  }
+  ```
+
+- **集成测试**：
+  使用 SQLite 内存数据库进行端到端测试：
+  ```go
+  func TestEndToEnd(t *testing.T) {
+      db, _ := sql.Open("sqlite3", ":memory:")
+      defer db.Close()
+
+      // 创建测试表
+      db.Exec(`CREATE TABLE users (
+          id INTEGER PRIMARY KEY,
+          name TEXT NOT NULL,
+          email TEXT UNIQUE
+      )`)
+
+      gen := NewGenerator(DefaultConfig())
+      schema, _ := gen.Parse(context.Background(), db)
+
+      assert.Equal(t, 1, len(schema.Tables))
+      assert.Equal(t, "users", schema.Tables[0].Name)
+  }
+  ```
+
+**3.9 性能要求**
+
+- **解析性能**：单表解析耗时 < 100ms（不含网络延迟）。
+- **生成性能**：单文件生成耗时 < 50ms，并发生成多个文件时充分利用多核。
+- **增量检测**：通过缓存 Schema Hash，变更检测时间 < 10ms。
+
+**3.10 并发安全与原子性**
+
+- **并发生成**：支持并行生成多个表的代码，使用 Goroutine Pool 控制并发度。
+- **原子写入**：采用"临时文件 + 原子重命名"策略，避免生成过程中断导致文件损坏：
+  ```go
+  tmpFile := outputPath + ".tmp"
+  os.WriteFile(tmpFile, data, 0644)
+  os.Rename(tmpFile, outputPath)  // 原子操作
+  ```
+
+#### 4. 技术选型建议
+
+**4.1 推荐依赖库**
+
+| 库                    | 用途            | 理由                 |
+| --------------------- | --------------- | -------------------- |
+| `database/sql`        | 数据库连接      | 标准库，无额外依赖   |
+| `go-sql-driver/mysql` | MySQL 驱动      | 官方推荐             |
+| `lib/pq`              | PostgreSQL 驱动 | 成熟稳定             |
+| `mattn/go-sqlite3`    | SQLite 驱动     | 轻量级，适合测试     |
+| `text/template`       | 模板引擎        | 标准库，高性能       |
+| `iancoleman/strcase`  | 命名转换        | 支持多种命名规范转换 |
+| `spf13/viper`         | 配置解析        | 支持多格式配置文件   |
+| `shopspring/decimal`  | 高精度小数      | 金融场景必备         |
+
+**4.2 可选增强库**
+
+| 库                       | 用途         | 使用场景             |
+| ------------------------ | ------------ | -------------------- |
+| `jmoiron/sqlx`           | SQL 扩展     | 简化查询结果映射     |
+| `golang-migrate/migrate` | 迁移管理     | 生成可执行的迁移脚本 |
+| `dave/jennifer`          | 代码生成 AST | 复杂代码生成场景     |
+
+#### 5. 使用示例
+
+**5.1 API 编程方式**
+
+```go
+package main
+
+import (
+    "context"
+    "database/sql"
+    "log"
+
+    "github.com/rei0721/rei0721/pkg/sqlgen"
+    _ "github.com/go-sql-driver/mysql"
+)
+
+func main() {
+    // 连接数据库
+    db, err := sql.Open("mysql", "root:password@tcp(127.0.0.1:3306)/mydb")
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer db.Close()
+
+    // 配置生成器
+    config := sqlgen.Config{
+        DatabaseType: sqlgen.MySQL,
+        OutputDir:    "./generated",
+        PackageName:  "models",
+        GenerateModel: true,
+        GenerateDAO:   true,
+        EnableSoftDelete: true,
+        SoftDeleteField:  "deleted_at",
+    }
+
+    // 创建生成器
+    generator := sqlgen.NewGenerator(config)
+
+    // 解析 Schema
+    schema, err := generator.Parse(context.Background(), db)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    // 生成代码
+    err = generator.Generate(context.Background(), schema, config.OutputDir)
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    log.Println("Code generated successfully!")
+}
+```
+
+**5.2 CLI 使用方式**
+
+```bash
+# 初始化配置文件
+sqlgen init
+
+# 生成所有表
+sqlgen generate --config=sqlgen.yaml
+
+# 仅生成 users 和 orders 表
+sqlgen generate --table=users,orders
+
+# 预览生成内容
+sqlgen generate --table=users --dry-run
+
+# 使用自定义模板
+sqlgen generate --template=./my-templates
+
+# 查看数据库表结构
+sqlgen inspect users
+
+# 查看所有表
+sqlgen inspect --all
+
+# 生成迁移脚本
+sqlgen migrate create --name=add_user_index
+```
+
+**5.3 生成代码示例**
+
+**模型文件（models/user.go）**：
+
+```go
+// Code generated by sqlgen. DO NOT EDIT.
+
+package models
+
+import "time"
+
+// User 用户表
+type User struct {
+    ID        int64     `json:"id" gorm:"primaryKey;autoIncrement" validate:"required"`
+    Username  string    `json:"username" gorm:"type:varchar(100);uniqueIndex;not null" validate:"required,min=3,max=100"`
+    Email     string    `json:"email" gorm:"type:varchar(255);uniqueIndex;not null" validate:"required,email"`
+    Password  string    `json:"-" gorm:"type:varchar(255);not null" validate:"required,min=8"`
+    Status    int       `json:"status" gorm:"type:tinyint;default:1" validate:"oneof=0 1 2"`
+    CreatedAt time.Time `json:"created_at" gorm:"autoCreateTime"`
+    UpdatedAt time.Time `json:"updated_at" gorm:"autoUpdateTime"`
+    DeletedAt *time.Time `json:"deleted_at,omitempty" gorm:"index"`
+}
+
+// TableName 返回表名
+func (User) TableName() string {
+    return "users"
+}
+```
+
+**DAO 文件（dao/user_dao.go）**：
+
+```go
+// Code generated by sqlgen. DO NOT EDIT.
+
+package dao
+
+import (
+    "context"
+    "database/sql"
+
+    "github.com/rei0721/rei0721/generated/models"
+)
+
+type UserDAO struct {
+    db *sql.DB
+}
+
+func NewUserDAO(db *sql.DB) *UserDAO {
+    return &UserDAO{db: db}
+}
+
+// Create 创建用户
+func (d *UserDAO) Create(ctx context.Context, user *models.User) error {
+    query := `INSERT INTO users (username, email, password, status, created_at, updated_at)
+              VALUES (?, ?, ?, ?, ?, ?)`
+    result, err := d.db.ExecContext(ctx, query, user.Username, user.Email, user.Password,
+                                     user.Status, user.CreatedAt, user.UpdatedAt)
+    if err != nil {
+        return err
+    }
+    id, _ := result.LastInsertId()
+    user.ID = id
+    return nil
+}
+
+// FindByID 根据 ID 查询
+func (d *UserDAO) FindByID(ctx context.Context, id int64) (*models.User, error) {
+    query := `SELECT id, username, email, password, status, created_at, updated_at, deleted_at
+              FROM users WHERE id = ? AND deleted_at IS NULL`
+    user := &models.User{}
+    err := d.db.QueryRowContext(ctx, query, id).Scan(
+        &user.ID, &user.Username, &user.Email, &user.Password,
+        &user.Status, &user.CreatedAt, &user.UpdatedAt, &user.DeletedAt,
+    )
+    if err != nil {
+        return nil, err
+    }
+    return user, nil
+}
+
+// Update 更新用户
+func (d *UserDAO) Update(ctx context.Context, user *models.User) error {
+    query := `UPDATE users SET username=?, email=?, password=?, status=?, updated_at=?
+              WHERE id=? AND deleted_at IS NULL`
+    _, err := d.db.ExecContext(ctx, query, user.Username, user.Email, user.Password,
+                                user.Status, user.UpdatedAt, user.ID)
+    return err
+}
+
+// Delete 软删除用户
+func (d *UserDAO) Delete(ctx context.Context, id int64) error {
+    query := `UPDATE users SET deleted_at=? WHERE id=? AND deleted_at IS NULL`
+    _, err := d.db.ExecContext(ctx, query, time.Now(), id)
+    return err
+}
+```
+
+#### 6. 质量要求
+
+- **代码质量**：
+
+  - 生成的代码必须通过 `go fmt` 和 `go vet` 检查。
+  - 生成的代码必须包含完整的 GoDoc 注释。
+  - 单元测试覆盖率 ≥ 80%。
+
+- **文档完整性**：
+
+  - `pkg/sqlgen/README.md`：完整的使用指南和 API 文档。
+  - `pkg/sqlgen/doc.go`：包级别文档和设计思路。
+  - 模板文件包含详细注释，说明可用变量和函数。
+
+- **向后兼容**：
+
+  - 配置文件格式变更需保持向后兼容，废弃字段标记 `deprecated`。
+  - 生成的代码接口保持稳定，避免破坏性变更。
+
+- **错误提示友好**：
+  - 连接失败时，提示检查 DSN 配置和数据库状态。
+  - 表不存在时，列出所有可用表名。
+  - 模板错误时，指出具体的模板行号和错误原因。
+
+#### 7. 可选增强特性
+
+- **GraphQL Schema 生成**：支持从数据库生成 GraphQL Schema 定义。
+- **Swagger/OpenAPI 集成**：生成 RESTful API 文档注解。
+- **国际化支持**：支持多语言注释和错误消息。
+- **在线预览**：提供 Web UI 预览生成的代码（类似 Swagger Editor）。
+- **CI/CD 集成**：生成 GitHub Actions 工作流，自动检测 Schema 变更并提交 PR。
+- **版本管理**：记录生成历史，支持回滚到之前的生成版本。
+
+#### 8. 安全考虑
+
+- **SQL 注入防护**：所有数据库查询使用参数化查询，禁止拼接 SQL。
+- **敏感信息保护**：
+  - 生成的代码自动添加 `json:"-"` 隐藏敏感字段（如 password）。
+  - 配置文件中的数据库密码支持环境变量占位符：`${DB_PASSWORD}`。
+- **权限控制**：
+  - 连接数据库时使用只读账号（仅需 `SELECT` 和查询元数据权限）。
+  - 生成的文件权限设置为 `0644`（只读），避免误修改。
+
+---
+
+### 总结
+
+本组件旨在为 `rei0721` 项目提供**高效、类型安全、可扩展**的 SQL 代码生成能力，解决手写 SQL、ORM 模型维护成本高、数据库与代码不一致等痛点。通过统一的工具链，确保数据库驱动开发（Database-Driven Development）的规范化和自动化，大幅提升团队开发效率和代码质量。

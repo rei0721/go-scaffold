@@ -1,298 +1,344 @@
-// Package sqlgen 提供了基于 GORM 模型生成 SQL 语句的工具
-// 支持生成建表语句和基础的 CRUD 操作 SQL
 package sqlgen
 
 import (
+	"context"
+	"database/sql"
 	"fmt"
-	"reflect"
+	"path/filepath"
 	"strings"
-	"time"
-
-	"gorm.io/gorm"
 )
 
-// Generator SQL 生成器
-type Generator struct {
-	dialect Dialect // 数据库方言
+// generator SQL 代码生成器实现
+type generator struct {
+	config   *Config
+	parser   Parser
+	template TemplateEngine
+	writer   FileWriter
 }
 
-// Dialect 数据库方言接口
-type Dialect interface {
-	// GetDataType 根据 Go 类型和 GORM 标签获取数据库字段类型
-	GetDataType(fieldType reflect.Type, gormTag string) string
-	// GetCreateTableSQL 生成建表 SQL
-	GetCreateTableSQL(tableName string, fields []Field) string
-	// GetInsertSQL 生成插入 SQL
-	GetInsertSQL(tableName string, fields []Field) string
-	// GetSelectSQL 生成查询 SQL
-	GetSelectSQL(tableName string, fields []Field) string
-	// GetUpdateSQL 生成更新 SQL
-	GetUpdateSQL(tableName string, fields []Field) string
-	// GetDeleteSQL 生成删除 SQL
-	GetDeleteSQL(tableName string) string
-}
+// ParserFactory 解析器工厂函数类型
+type ParserFactory func(dbType DatabaseType) (Parser, error)
 
-// Field 字段信息
-type Field struct {
-	Name         string // 字段名
-	Type         string // 数据库类型
-	IsPrimaryKey bool   // 是否主键
-	IsUnique     bool   // 是否唯一
-	IsIndex      bool   // 是否索引
-	IsNotNull    bool   // 是否非空
-	DefaultValue string // 默认值
-	Size         int    // 字段大小
-	Comment      string // 注释
-}
+// TemplateFactory 模板引擎工厂函数类型
+type TemplateFactory func() TemplateEngine
 
-// ModelInfo 模型信息
-type ModelInfo struct {
-	TableName string  // 表名
-	Fields    []Field // 字段列表
-}
+// DefaultParserFactory 默认解析器工厂 (需要在外部设置)
+var DefaultParserFactory ParserFactory
 
-// New 创建新的 SQL 生成器
-func New(dialect Dialect) *Generator {
-	return &Generator{
-		dialect: dialect,
+// DefaultTemplateFactory 默认模板引擎工厂 (需要在外部设置)
+var DefaultTemplateFactory TemplateFactory
+
+// NewGenerator 创建代码生成器
+func NewGenerator(config *Config) (Generator, error) {
+	if config == nil {
+		config = DefaultConfig()
 	}
-}
 
-// GenerateSQL 生成模型的所有 SQL 语句
-func (g *Generator) GenerateSQL(model interface{}) (*SQLResult, error) {
-	modelInfo, err := g.parseModel(model)
+	if err := config.Validate(); err != nil {
+		return nil, err
+	}
+
+	// 使用工厂创建解析器
+	if DefaultParserFactory == nil {
+		return nil, fmt.Errorf("parser factory not initialized")
+	}
+	p, err := DefaultParserFactory(config.DatabaseType)
 	if err != nil {
-		return nil, fmt.Errorf("failed to parse model: %w", err)
+		return nil, err
 	}
 
-	result := &SQLResult{
-		TableName:   modelInfo.TableName,
-		CreateTable: g.dialect.GetCreateTableSQL(modelInfo.TableName, modelInfo.Fields),
-		Insert:      g.dialect.GetInsertSQL(modelInfo.TableName, modelInfo.Fields),
-		Select:      g.dialect.GetSelectSQL(modelInfo.TableName, modelInfo.Fields),
-		Update:      g.dialect.GetUpdateSQL(modelInfo.TableName, modelInfo.Fields),
-		Delete:      g.dialect.GetDeleteSQL(modelInfo.TableName),
+	// 使用工厂创建模板引擎
+	var tmpl TemplateEngine
+	if DefaultTemplateFactory != nil {
+		tmpl = DefaultTemplateFactory()
 	}
 
-	return result, nil
-}
-
-// SQLResult SQL 生成结果
-type SQLResult struct {
-	TableName   string // 表名
-	CreateTable string // 建表 SQL
-	Insert      string // 插入 SQL
-	Select      string // 查询 SQL
-	Update      string // 更新 SQL
-	Delete      string // 删除 SQL
-}
-
-// parseModel 解析模型结构
-func (g *Generator) parseModel(model interface{}) (*ModelInfo, error) {
-	modelType := reflect.TypeOf(model)
-	if modelType.Kind() == reflect.Ptr {
-		modelType = modelType.Elem()
-	}
-
-	if modelType.Kind() != reflect.Struct {
-		return nil, fmt.Errorf("model must be a struct, got %s", modelType.Kind())
-	}
-
-	// 获取表名
-	tableName := g.getTableName(model, modelType)
-
-	// 解析字段
-	fields, err := g.parseFields(modelType)
-	if err != nil {
-		return nil, fmt.Errorf("failed to parse fields: %w", err)
-	}
-
-	return &ModelInfo{
-		TableName: tableName,
-		Fields:    fields,
+	return &generator{
+		config:   config,
+		parser:   p,
+		template: tmpl,
+		writer:   NewFileWriter(),
 	}, nil
 }
 
-// getTableName 获取表名
-func (g *Generator) getTableName(model interface{}, modelType reflect.Type) string {
-	// 尝试调用 TableName 方法
-	if tableNamer, ok := model.(interface{ TableName() string }); ok {
-		return tableNamer.TableName()
+// NewGeneratorWithDeps 创建代码生成器 (带依赖注入)
+func NewGeneratorWithDeps(config *Config, p Parser, t TemplateEngine, w FileWriter) Generator {
+	return &generator{
+		config:   config,
+		parser:   p,
+		template: t,
+		writer:   w,
 	}
-
-	// 使用结构体名称的复数形式作为表名
-	return strings.ToLower(modelType.Name()) + "s"
 }
 
-// parseFields 解析字段
-func (g *Generator) parseFields(modelType reflect.Type) ([]Field, error) {
-	var fields []Field
+// Parse 解析数据库 Schema
+func (g *generator) Parse(ctx context.Context, db *sql.DB) (*Schema, error) {
+	schema, err := g.parser.ParseDatabase(ctx, db)
+	if err != nil {
+		return nil, fmt.Errorf("%w: %v", ErrParseSchema, err)
+	}
 
-	for i := 0; i < modelType.NumField(); i++ {
-		field := modelType.Field(i)
+	// 应用表过滤
+	schema.Tables = g.filterTables(schema.Tables)
 
-		// 跳过非导出字段
-		if !field.IsExported() {
-			continue
+	return schema, nil
+}
+
+// Generate 生成代码到指定目录
+func (g *generator) Generate(ctx context.Context, schema *Schema, outputDir string) error {
+	if outputDir == "" {
+		outputDir = g.config.OutputDir
+	}
+
+	for _, table := range schema.Tables {
+		if err := g.GenerateTable(ctx, table, outputDir); err != nil {
+			return err
 		}
+	}
 
-		// 处理嵌入字段
-		if field.Anonymous {
-			embeddedFields, err := g.parseFields(field.Type)
-			if err != nil {
-				return nil, fmt.Errorf("failed to parse embedded field %s: %w", field.Name, err)
+	// 生成 DDL/Migration 脚本
+	if g.config.Target.Migration {
+		ddlGen := NewDDLGenerator(g.config)
+		if err := ddlGen.GenerateDDLToFile(schema, ""); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// GenerateTable 生成单个表的代码
+func (g *generator) GenerateTable(ctx context.Context, table *Table, outputDir string) error {
+	// 准备模板数据
+	data := g.prepareTemplateData(table)
+
+	// 生成模型
+	if g.config.Target.Model {
+		if err := g.generateModel(data, outputDir); err != nil {
+			return err
+		}
+	}
+
+	// 生成 DAO
+	if g.config.Target.DAO {
+		if err := g.generateDAO(data, outputDir); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+// filterTables 过滤表
+func (g *generator) filterTables(tables []*Table) []*Table {
+	if len(g.config.Tables.Include) == 0 && len(g.config.Tables.Exclude) == 0 {
+		return tables
+	}
+
+	var filtered []*Table
+	for _, t := range tables {
+		// 检查白名单
+		if len(g.config.Tables.Include) > 0 {
+			if !matchAny(t.Name, g.config.Tables.Include) {
+				continue
 			}
-			fields = append(fields, embeddedFields...)
+		}
+
+		// 检查黑名单
+		if matchAny(t.Name, g.config.Tables.Exclude) {
 			continue
 		}
 
-		// 跳过 JSON 标签为 "-" 的字段
-		jsonTag := field.Tag.Get("json")
-		if jsonTag == "-" {
-			continue
+		filtered = append(filtered, t)
+	}
+
+	return filtered
+}
+
+// matchAny 检查名称是否匹配任意模式
+func matchAny(name string, patterns []string) bool {
+	for _, pattern := range patterns {
+		if matchPattern(name, pattern) {
+			return true
+		}
+	}
+	return false
+}
+
+// matchPattern 简单的通配符匹配
+func matchPattern(name, pattern string) bool {
+	if pattern == "*" {
+		return true
+	}
+	if strings.HasPrefix(pattern, "*") && strings.HasSuffix(pattern, "*") {
+		return strings.Contains(name, pattern[1:len(pattern)-1])
+	}
+	if strings.HasPrefix(pattern, "*") {
+		return strings.HasSuffix(name, pattern[1:])
+	}
+	if strings.HasSuffix(pattern, "*") {
+		return strings.HasPrefix(name, pattern[:len(pattern)-1])
+	}
+	return name == pattern
+}
+
+// prepareTemplateData 准备模板数据
+func (g *generator) prepareTemplateData(table *Table) *TemplateData {
+	structName := ToPascalCase(table.Name)
+	structName = ToSingular(structName)
+
+	// 收集需要的 imports
+	imports := make(map[string]bool)
+
+	// 准备字段信息
+	var columnInfos []*ColumnInfo
+	var insertColumns []*ColumnInfo
+	var updateColumns []*ColumnInfo
+
+	for _, col := range table.Columns {
+		fieldName := ToPascalCase(col.Name)
+
+		info := &ColumnInfo{
+			Column:    col,
+			FieldName: fieldName,
+			JSONTag:   g.buildJSONTag(col),
+			GORMTag:   g.buildGORMTag(col),
 		}
 
-		// 解析 GORM 标签
-		gormTag := field.Tag.Get("gorm")
-		fieldInfo := g.parseFieldInfo(field, gormTag)
-
-		fields = append(fields, fieldInfo)
-	}
-
-	return fields, nil
-}
-
-// parseFieldInfo 解析字段信息
-func (g *Generator) parseFieldInfo(field reflect.StructField, gormTag string) Field {
-	fieldInfo := Field{
-		Name: g.getColumnName(field),
-		Type: g.dialect.GetDataType(field.Type, gormTag),
-	}
-
-	// 解析 GORM 标签
-	tags := g.parseGormTag(gormTag)
-
-	// 设置字段属性
-	fieldInfo.IsPrimaryKey = g.hasTag(tags, "primaryKey")
-	fieldInfo.IsUnique = g.hasTag(tags, "uniqueIndex") || g.hasTag(tags, "unique")
-	fieldInfo.IsIndex = g.hasTag(tags, "index")
-	fieldInfo.IsNotNull = g.hasTag(tags, "not null")
-
-	// 获取字段大小
-	if sizeTag := g.getTagValue(tags, "size"); sizeTag != "" {
-		fieldInfo.Size = g.parseSize(sizeTag)
-	}
-
-	// 获取默认值
-	if defaultTag := g.getTagValue(tags, "default"); defaultTag != "" {
-		fieldInfo.DefaultValue = defaultTag
-	}
-
-	// 获取注释
-	if commentTag := g.getTagValue(tags, "comment"); commentTag != "" {
-		fieldInfo.Comment = commentTag
-	}
-
-	return fieldInfo
-}
-
-// getColumnName 获取列名
-func (g *Generator) getColumnName(field reflect.StructField) string {
-	// 检查 GORM 标签中的 column 设置
-	gormTag := field.Tag.Get("gorm")
-	tags := g.parseGormTag(gormTag)
-
-	if columnName := g.getTagValue(tags, "column"); columnName != "" {
-		return columnName
-	}
-
-	// 使用字段名的蛇形命名
-	return g.toSnakeCase(field.Name)
-}
-
-// parseGormTag 解析 GORM 标签
-func (g *Generator) parseGormTag(tag string) map[string]string {
-	tags := make(map[string]string)
-
-	if tag == "" {
-		return tags
-	}
-
-	parts := strings.Split(tag, ";")
-	for _, part := range parts {
-		part = strings.TrimSpace(part)
-		if part == "" {
-			continue
+		// 收集 import
+		if imp := getImportsForType(col.GoType); imp != "" {
+			imports[imp] = true
 		}
 
-		if strings.Contains(part, ":") {
-			kv := strings.SplitN(part, ":", 2)
-			tags[strings.TrimSpace(kv[0])] = strings.TrimSpace(kv[1])
-		} else {
-			tags[part] = ""
+		columnInfos = append(columnInfos, info)
+
+		// 排除自增主键的插入列
+		if !col.IsAutoIncrement {
+			insertColumns = append(insertColumns, info)
+		}
+
+		// 排除主键的更新列
+		if !col.IsPrimaryKey {
+			updateColumns = append(updateColumns, info)
 		}
 	}
 
-	return tags
-}
-
-// hasTag 检查是否有指定标签
-func (g *Generator) hasTag(tags map[string]string, tag string) bool {
-	_, exists := tags[tag]
-	return exists
-}
-
-// getTagValue 获取标签值
-func (g *Generator) getTagValue(tags map[string]string, tag string) string {
-	return tags[tag]
-}
-
-// parseSize 解析大小
-func (g *Generator) parseSize(sizeStr string) int {
-	var size int
-	fmt.Sscanf(sizeStr, "%d", &size)
-	return size
-}
-
-// toSnakeCase 转换为蛇形命名
-func (g *Generator) toSnakeCase(str string) string {
-	// 处理常见的缩写
-	switch str {
-	case "ID":
-		return "id"
-	case "URL":
-		return "url"
-	case "HTTP":
-		return "http"
-	case "API":
-		return "api"
-	case "JSON":
-		return "json"
-	case "XML":
-		return "xml"
+	// 转换 imports map 为 slice
+	var importList []string
+	for imp := range imports {
+		importList = append(importList, imp)
 	}
 
-	// 处理以 ID 结尾的情况
-	if strings.HasSuffix(str, "ID") && len(str) > 2 {
-		prefix := str[:len(str)-2]
-		return g.toSnakeCase(prefix) + "_id"
+	return &TemplateData{
+		Header:        GeneratedFileHeader,
+		PackageName:   g.config.PackageName,
+		StructName:    structName,
+		Table:         table,
+		ColumnInfos:   columnInfos,
+		InsertColumns: insertColumns,
+		UpdateColumns: updateColumns,
+		Imports:       importList,
+		Tags:          g.config.Tags,
+		SoftDelete:    g.config.SoftDelete,
+		Timestamp:     g.config.Timestamp,
+		Version:       g.config.Version,
 	}
-
-	var result strings.Builder
-
-	for i, r := range str {
-		if i > 0 && r >= 'A' && r <= 'Z' {
-			result.WriteByte('_')
-		}
-		result.WriteRune(r)
-	}
-
-	return strings.ToLower(result.String())
 }
 
-// IsGormDeletedAt 检查是否是 GORM 的 DeletedAt 字段
-func (g *Generator) IsGormDeletedAt(fieldType reflect.Type) bool {
-	return fieldType == reflect.TypeOf(gorm.DeletedAt{}) ||
-		fieldType == reflect.TypeOf(&gorm.DeletedAt{}) ||
-		(fieldType.Kind() == reflect.Ptr && fieldType.Elem() == reflect.TypeOf(time.Time{}))
+// TemplateData 模板数据
+type TemplateData struct {
+	Header        string
+	PackageName   string
+	StructName    string
+	Table         *Table
+	ColumnInfos   []*ColumnInfo
+	InsertColumns []*ColumnInfo
+	UpdateColumns []*ColumnInfo
+	Imports       []string
+	Tags          TagOptions
+	SoftDelete    SoftDeleteOptions
+	Timestamp     TimestampOptions
+	Version       VersionOptions
+}
+
+// buildJSONTag 构建 JSON tag
+func (g *generator) buildJSONTag(col *Column) string {
+	name := ToSnakeCase(col.Name)
+	if strings.EqualFold(col.Name, "password") {
+		return "-"
+	}
+	if col.Nullable {
+		return name + ",omitempty"
+	}
+	return name
+}
+
+// buildGORMTag 构建 GORM tag
+func (g *generator) buildGORMTag(col *Column) string {
+	var parts []string
+
+	if col.IsPrimaryKey {
+		parts = append(parts, "primaryKey")
+	}
+	if col.IsAutoIncrement {
+		parts = append(parts, "autoIncrement")
+	}
+	if !col.Nullable && !col.IsPrimaryKey {
+		parts = append(parts, "not null")
+	}
+
+	// 添加类型信息
+	if col.DataType != "" {
+		parts = append(parts, "type:"+col.DataType)
+	}
+
+	return strings.Join(parts, ";")
+}
+
+// generateModel 生成模型文件
+func (g *generator) generateModel(data *TemplateData, outputDir string) error {
+	content, err := g.template.Render("model", data)
+	if err != nil {
+		return &GenerateError{Table: data.Table.Name, Message: "failed to render model", Cause: err}
+	}
+
+	// 输出路径: outputDir/models/table_name.go
+	fileName := ToSnakeCase(data.Table.Name) + ".go"
+	filePath := filepath.Join(outputDir, "models", fileName)
+
+	if err := g.writer.WriteAtomic(filePath, []byte(content)); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// generateDAO 生成 DAO 文件
+func (g *generator) generateDAO(data *TemplateData, outputDir string) error {
+	content, err := g.template.Render("dao", data)
+	if err != nil {
+		return &GenerateError{Table: data.Table.Name, Message: "failed to render dao", Cause: err}
+	}
+
+	// 输出路径: outputDir/dao/table_name_dao.go
+	fileName := ToSnakeCase(data.Table.Name) + "_dao.go"
+	filePath := filepath.Join(outputDir, "dao", fileName)
+
+	if err := g.writer.WriteAtomic(filePath, []byte(content)); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// getImportsForType 根据 Go 类型返回需要的 import 路径
+func getImportsForType(goType string) string {
+	switch {
+	case strings.Contains(goType, "time.Time"):
+		return "time"
+	case strings.Contains(goType, "json.RawMessage"):
+		return "encoding/json"
+	default:
+		return ""
+	}
 }
