@@ -1,7 +1,7 @@
 server:
   host: 0.0.0.0
   port: 9999
-  mode: ${SERVER_MODE:debug}
+  mode: debug
   readTimeout: 10
   writeTimeout: 10
 
@@ -109,3 +109,34 @@ i18n:
   supported:
     - zh-CN
     - en-US
+
+# 执行器配置
+# 管理异步任务的协程池,支持多池隔离
+executor:
+  # 是否启用执行器
+  # true: 启用, false: 禁用
+  enabled: true
+
+  # 池配置列表
+  # 每个池独立管理一类任务,实现资源隔离
+  pools:
+    # HTTP 请求处理池
+    # 用于处理 HTTP 请求相关的异步任务
+    - name: http
+      size: 200 # 池容量(最大并发 worker 数)
+      expiry: 10 # worker 过期时间(秒)
+      nonBlocking: true # 非阻塞模式(池满时立即返回错误)
+
+    # 数据库操作池
+    # 用于处理数据库相关的异步任务
+    - name: database
+      size: 50
+      expiry: 30
+      nonBlocking: false # 阻塞模式(池满时等待)
+
+    # 后台任务池
+    # 用于处理邮件发送、文件处理等后台任务
+    - name: background
+      size: 30
+      expiry: 60
+      nonBlocking: true

@@ -51,6 +51,10 @@ type Config struct {
 	// I18n 国际化配置
 	// 支持多语言
 	I18n I18nConfig `mapstructure:"i18n"`
+
+	// Executor 执行器配置
+	// 管理异步任务的协程池
+	Executor ExecutorConfig `mapstructure:"executor"`
 }
 
 // ServerConfig HTTP 服务器配置
@@ -88,6 +92,12 @@ type ServerConfig struct {
 	// 防止慢速客户端占用连接
 	// 推荐: 10-120 秒(取决于响应大小)
 	WriteTimeout int `mapstructure:"writeTimeout"`
+
+	// IdleTimeout 空闲连接的超时时间(秒)
+	// 从连接建立到空闲的最大时间
+	// 防止慢速客户端占用连接
+	// 推荐: 60-300 秒
+	IdleTimeout int `mapstructure:"idleTimeout"`
 }
 
 // DatabaseConfig 数据库连接配置
@@ -283,6 +293,44 @@ type I18nConfig struct {
 	Supported []string `mapstructure:"supported"`
 }
 
+// ExecutorPoolConfig 单个执行器池的配置
+// 定义了一个协程池的行为参数
+type ExecutorPoolConfig struct {
+	// Name 池的唯一标识符
+	// 例如: "http", "database", "background"
+	// 业务层应该定义常量来引用这些名称
+	Name string `mapstructure:"name"`
+
+	// Size 池的容量,即最大并发 worker 数量
+	// 推荐值:
+	// - CPU 密集型: runtime.NumCPU() * 2
+	// - IO 密集型: 100-500
+	Size int `mapstructure:"size"`
+
+	// Expiry worker 的过期时间(秒)
+	// 闲置超过此时间的 worker 会被回收
+	// 推荐: 10-60 秒
+	Expiry int `mapstructure:"expiry"`
+
+	// NonBlocking 是否使用非阻塞模式
+	// true:  池满时立即返回错误
+	// false: 池满时阻塞等待
+	// 推荐使用 true
+	NonBlocking bool `mapstructure:"nonBlocking"`
+}
+
+// ExecutorConfig 执行器配置
+// 管理多个异步任务池
+type ExecutorConfig struct {
+	// Enabled 是否启用执行器
+	// false 时,应用不会创建执行器
+	Enabled bool `mapstructure:"enabled"`
+
+	// Pools 池配置列表
+	// 每个池可以有不同的参数
+	Pools []ExecutorPoolConfig `mapstructure:"pools"`
+}
+
 // Validate 验证整个配置
 // 实现 Configurable 接口
 // 会递归验证所有子配置
@@ -313,6 +361,11 @@ func (c *Config) Validate() error {
 	// 验证国际化配置
 	if err := c.I18n.Validate(); err != nil {
 		return fmt.Errorf("i18n config: %w", err)
+	}
+
+	// 验证执行器配置
+	if err := c.Executor.Validate(); err != nil {
+		return fmt.Errorf("executor config: %w", err)
 	}
 
 	return nil
@@ -486,6 +539,50 @@ func (c *I18nConfig) Validate() error {
 		// 默认语言必须是支持的语言之一
 		// 否则会导致运行时错误
 		return errors.New("default locale must be in supported list")
+	}
+
+	return nil
+}
+
+// Validate 验证执行器配置
+// 实现 Configurable 接口
+func (c *ExecutorConfig) Validate() error {
+	// 如果未启用,跳过验证
+	if !c.Enabled {
+		return nil
+	}
+
+	// 启用时必须至少有一个池
+	if len(c.Pools) == 0 {
+		return errors.New("at least one pool is required when executor is enabled")
+	}
+
+	// 验证每个池的配置
+	poolNames := make(map[string]bool)
+	for i, pool := range c.Pools {
+		// 验证池名称
+		if pool.Name == "" {
+			return fmt.Errorf("pool %d: name is required", i)
+		}
+
+		// 检查重复名称
+		if poolNames[pool.Name] {
+			return fmt.Errorf("duplicate pool name: %s", pool.Name)
+		}
+		poolNames[pool.Name] = true
+
+		// 验证池大小
+		if pool.Size <= 0 {
+			return fmt.Errorf("pool %s: size must be positive", pool.Name)
+		}
+		if pool.Size > 10000 {
+			return fmt.Errorf("pool %s: size must not exceed 10000", pool.Name)
+		}
+
+		// 验证过期时间
+		if pool.Expiry < 0 {
+			return fmt.Errorf("pool %s: expiry must be non-negative", pool.Name)
+		}
 	}
 
 	return nil

@@ -1,6 +1,11 @@
 package app
 
-import "github.com/rei0721/rei0721/internal/config"
+import (
+	"time"
+
+	"github.com/rei0721/rei0721/internal/config"
+	"github.com/rei0721/rei0721/pkg/executor"
+)
 
 // isRedisConfigChanged 检查 Redis 配置是否发生变化
 // 比较新旧配置的所有 Redis 相关字段
@@ -216,4 +221,84 @@ func isLoggerConfigChanged(oldCfg, newCfg *config.Config) bool {
 	}
 
 	return false
+}
+
+// isExecutorConfigChanged 检查执行器配置是否发生变化
+// 参数:
+//
+//	oldCfg: 旧配置
+//	newCfg: 新配置
+//
+// 返回:
+//
+//	bool: 如果配置有任何差异返回 true,否则返回 false
+func isExecutorConfigChanged(oldCfg, newCfg *config.Config) bool {
+	if oldCfg == newCfg {
+		return false
+	}
+
+	// 比较启用状态
+	if oldCfg.Executor.Enabled != newCfg.Executor.Enabled {
+		return true
+	}
+
+	// 如果都未启用,不需要关心其他字段
+	if !newCfg.Executor.Enabled {
+		return false
+	}
+
+	// 比较池数量
+	if len(oldCfg.Executor.Pools) != len(newCfg.Executor.Pools) {
+		return true
+	}
+
+	// 比较每个池的配置
+	// 使用 map 快速查找
+	oldPools := make(map[string]config.ExecutorPoolConfig)
+	for _, pool := range oldCfg.Executor.Pools {
+		oldPools[pool.Name] = pool
+	}
+
+	for _, newPool := range newCfg.Executor.Pools {
+		oldPool, exists := oldPools[newPool.Name]
+		if !exists {
+			// 新池,配置改变了
+			return true
+		}
+
+		// 比较池配置
+		if oldPool.Size != newPool.Size {
+			return true
+		}
+		if oldPool.Expiry != newPool.Expiry {
+			return true
+		}
+		if oldPool.NonBlocking != newPool.NonBlocking {
+			return true
+		}
+	}
+
+	return false
+}
+
+// makeExecutorConfigs 从应用配置创建执行器配置
+// 转换 internal/config.ExecutorPoolConfig 到 pkg/executor.Config
+// 参数:
+//
+//	cfg: 应用配置
+//
+// 返回:
+//
+//	[]executor.Config: 执行器配置列表
+func makeExecutorConfigs(cfg *config.Config) []executor.Config {
+	configs := make([]executor.Config, 0, len(cfg.Executor.Pools))
+	for _, poolCfg := range cfg.Executor.Pools {
+		configs = append(configs, executor.Config{
+			Name:        executor.PoolName(poolCfg.Name),
+			Size:        poolCfg.Size,
+			Expiry:      time.Duration(poolCfg.Expiry) * time.Second,
+			NonBlocking: poolCfg.NonBlocking,
+		})
+	}
+	return configs
 }

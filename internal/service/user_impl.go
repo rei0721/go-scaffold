@@ -5,7 +5,7 @@ import (
 
 	"github.com/rei0721/rei0721/internal/models"
 	"github.com/rei0721/rei0721/internal/repository"
-	"github.com/rei0721/rei0721/pkg/scheduler"
+	"github.com/rei0721/rei0721/pkg/executor"
 	"github.com/rei0721/rei0721/types"
 	"github.com/rei0721/rei0721/types/errors"
 	"github.com/rei0721/rei0721/types/result"
@@ -24,10 +24,10 @@ type userService struct {
 	// 通过接口依赖,而不是具体实现,遵循依赖倒置原则
 	repo repository.UserRepository
 
-	// scheduler 任务调度器
+	// executor 任务执行器
 	// 用于执行异步任务(如发送邮件、记录日志等)
 	// 避免阻塞主要业务流程
-	scheduler scheduler.Scheduler
+	executor executor.Manager
 }
 
 // NewUserService 创建一个新的 UserService 实例
@@ -41,10 +41,10 @@ type userService struct {
 //
 //	UserService 接口,而不是具体类型
 //	这样调用者只依赖接口,可以方便地进行单元测试(使用 mock)
-func NewUserService(repo repository.UserRepository, sched scheduler.Scheduler) UserService {
+func NewUserService(repo repository.UserRepository, exec executor.Manager) UserService {
 	return &userService{
-		repo:      repo,
-		scheduler: sched,
+		repo:     repo,
+		executor: exec,
 	}
 }
 
@@ -124,13 +124,12 @@ func (s *userService) Register(ctx context.Context, req *types.RegisterRequest) 
 	// - 提高响应速度,用户不需要等待邮件发送
 	// - 即使异步任务失败,注册仍然成功
 	// - 可以通过调度器的协程池控制并发,避免资源耗尽
-	_ = s.scheduler.Submit(ctx, func(taskCtx context.Context) {
+	_ = s.executor.Execute("background", func() {
 		// 这里可以实现:
 		// - 发送欢迎邮件
 		// - 记录注册事件到日志或分析系统
 		// - 触发其他微服务的通知
 		// - 初始化用户相关的其他资源
-		_ = taskCtx // 占位符,实际使用时会用到 context
 	})
 
 	// 7. 返回用户信息
@@ -186,13 +185,12 @@ func (s *userService) Login(ctx context.Context, req *types.LoginRequest) (*type
 
 	// 4. 提交异步任务记录登录事件
 	// 这些任务不应该阻塞登录流程
-	_ = s.scheduler.Submit(ctx, func(taskCtx context.Context) {
+	_ = s.executor.Execute("background", func() {
 		// 这里可以实现:
 		// - 记录登录日志(时间、IP、设备等)
 		// - 更新最后登录时间
 		// - 发送登录通知(如果启用)
 		// - 检测异常登录行为
-		_ = taskCtx // 占位符
 	})
 
 	// 5. 生成访问令牌

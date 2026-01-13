@@ -6,19 +6,18 @@ package app
 import (
 	"context"
 	"fmt"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/rei0721/rei0721/pkg/cache"
-	"github.com/rei0721/rei0721/pkg/daemon"
+	"github.com/rei0721/rei0721/pkg/executor"
 	"github.com/rei0721/rei0721/pkg/i18n"
 	"github.com/rei0721/rei0721/pkg/utils"
 
 	"github.com/rei0721/rei0721/internal/config"
-	"github.com/rei0721/rei0721/internal/daemons"
 	"github.com/rei0721/rei0721/pkg/database"
 	"github.com/rei0721/rei0721/pkg/logger"
-	"github.com/rei0721/rei0721/pkg/scheduler"
 )
 
 // App 是主应用程序容器,持有所有组件并管理它们的生命周期
@@ -47,9 +46,10 @@ type App struct {
 	// 如果 Redis 未启用,此字段为 nil
 	Cache cache.Cache
 
-	// Scheduler 任务调度器,用于执行异步任务
-	// 基于 ants 协程池实现,提高并发性能
-	Scheduler scheduler.Scheduler
+	// Executor 异步任务执行器
+	// 管理多个协程池,支持动态热重载
+	// 如果 Executor 未启用,此字段为 nil
+	Executor executor.Manager
 
 	// Logger 结构化日志记录器
 	// 支持多种输出格式(JSON/控制台)和日志级别
@@ -59,10 +59,8 @@ type App struct {
 	// 包含所有HTTP路由和中间件配置
 	Router *gin.Engine
 
-	// DaemonManager 守护进程管理器
-	// 统一管理所有长期运行的服务(HTTP、gRPC、Kafka 等)
-	// 使用 daemon.Manager 实现优雅启动和关闭
-	DaemonManager *daemon.Manager
+	// httpServer HTTP 服务器实例
+	HTTPServer *http.Server
 }
 
 // Options 创建新 App 时的配置选项
@@ -119,29 +117,19 @@ func New(opts Options) (*App, error) {
 	// Config 调试配置
 	debugConfig(app, opts)
 
-	// 初始化i18n
-	if err := initI18n(app); err != nil {
-		return nil, err
+	// 初始化应用
+	initApps := []func(app *App) error{
+		initI18n,     // 初始化i18n
+		initCache,    // 初始化 Redis
+		initDatabase, // 初始化数据库连接
+		initExecutor, // 初始化协程池
+		initBusiness, // 初始化业务
 	}
 
-	// 初始化 Redis
-	if err := initCache(app); err != nil {
-		return nil, err
-	}
-
-	// 初始化数据库连接
-	if err := initDatabase(app); err != nil {
-		return nil, err
-	}
-
-	// 初始化 scheduler
-	if err := initScheduler(app); err != nil {
-		return nil, err
-	}
-
-	// 初始化业务
-	if err := initBusiness(app); err != nil {
-		return nil, err
+	for _, initApp := range initApps {
+		if err := initApp(app); err != nil {
+			return nil, err
+		}
 	}
 
 	// Start config file watching for hot-reload
@@ -163,16 +151,6 @@ func New(opts Options) (*App, error) {
 		app.Logger.Info("configuration update completed")
 	})
 
-	// 初始化守护进程管理器
-	// 用于统一管理所有长期运行的服务
-	app.DaemonManager = daemon.NewManager(app.Logger)
-
-	// 注册 HTTP 守护进程
-	// 将 HTTP 服务器封装为 daemon 并注册到管理器
-	addr := fmt.Sprintf("%s:%d", app.Config.Server.Host, app.Config.Server.Port)
-	httpDaemon := daemons.NewHTTPDaemon(addr, app.Config.Server.ReadTimeout, app.Config.Server.WriteTimeout, app.Scheduler, app.Router, app.Logger)
-	app.DaemonManager.Register(httpDaemon)
-
 	app.Logger.Info("application initialized successfully")
 	return app, nil
 }
@@ -188,13 +166,11 @@ func New(opts Options) (*App, error) {
 //
 //	error: 启动失败时的错误
 func (a *App) Start(ctx context.Context) error {
-	// 启动所有守护进程
-	// Manager.Start() 会并发启动所有注册的守护进程
-	if err := a.DaemonManager.Start(ctx); err != nil {
-		return fmt.Errorf("failed to start daemons: %w", err)
-	}
+	// 构造监听地址
+	// 格式: ":8080" 表示监听所有网络接口的 8080 端口
+	// Port 如果为 0 则随机分配一个未使用的端口
+	go listenHttpServer(a)
 
-	a.Logger.Info("all daemons started successfully")
 	return nil
 }
 
@@ -240,34 +216,29 @@ func (a *App) Shutdown(ctx context.Context) error {
 	// 收集所有关闭过程中的错误
 	var errs []error
 
-	// 1. 关闭所有守护进程(包括 HTTP 服务器)
-	// DaemonManager.Stop() 会并发关闭所有注册的守护进程
+	// 关闭 HTTP 服务器
 	// 步骤:
-	// - 停止接收新连接/任务
-	// - 等待现有连接/任务完成
+	// - 停止接收新连接
+	// - 等待现有请求处理完成
 	// - 或者直到 context 超时
-	if a.DaemonManager != nil {
-		if err := a.DaemonManager.Stop(ctx); err != nil {
+	if a.HTTPServer != nil {
+		if err := a.HTTPServer.Shutdown(ctx); err != nil {
 			// 关闭失败,记录错误但继续关闭其他组件
-			a.Logger.Error("failed to stop daemons", "error", err)
-			errs = append(errs, fmt.Errorf("daemons shutdown: %w", err))
+			a.Logger.Error("failed to shutdown HTTP server", "error", err)
+			errs = append(errs, fmt.Errorf("http server shutdown: %w", err))
 		} else {
-			a.Logger.Info("all daemons stopped")
+			a.Logger.Info("HTTP server stopped")
 		}
 	}
 
-	// 关闭调度器(等待运行中的任务)
+	// 关闭执行器(等待运行中的任务)
 	// 步骤:
 	// - 停止接收新任务
 	// - 等待运行中的任务完成
 	// - 释放协程池资源
-	if a.Scheduler != nil {
-		if err := a.Scheduler.Shutdown(ctx); err != nil {
-			a.Logger.Error("failed to shutdown scheduler", "error", err)
-			errs = append(errs, fmt.Errorf("scheduler shutdown: %w", err))
-		} else {
-			a.Logger.Info("scheduler stopped")
-		}
+	if a.Executor != nil {
+		a.Executor.Shutdown()
+		a.Logger.Info("executor stopped")
 	}
 
 	// 关闭缓存连接

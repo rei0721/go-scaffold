@@ -3,7 +3,7 @@ package middleware
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/rei0721/rei0721/pkg/id"
+	"github.com/rei0721/rei0721/pkg/utils"
 )
 
 // TraceIDKey 是存储追踪 ID 的上下文键
@@ -18,7 +18,7 @@ const DefaultHeaderName = "X-Request-ID"
 // traceIDGenerator TraceID 生成器
 // 使用包级别变量,在整个应用中复用同一个生成器
 // 这样可以确保生成的 ID 在单个实例中是唯一的
-var traceIDGenerator id.Generator
+var traceIDGenerator utils.IDGenerator
 
 func init() {
 	// 在包初始化时创建 TraceID 生成器
@@ -26,7 +26,7 @@ func init() {
 	// 使用 node ID 1 初始化 Snowflake 算法
 	// 在分布式环境中,每个节点应该使用不同的 node ID
 	var err error
-	traceIDGenerator, err = id.NewSnowflake(1)
+	traceIDGenerator, err = utils.NewSnowflake(1)
 	if err != nil {
 		// 如果初始化失败,程序无法正常工作
 		// 使用 panic 立即终止程序,暴露问题
@@ -75,7 +75,7 @@ func TraceID(cfg TraceIDConfig) gin.HandlerFunc {
 		// - 时间有序性(可以通过 ID 判断请求时间)
 		// - 高性能(无需访问数据库或外部服务)
 		if traceID == "" {
-			traceID = traceIDGenerator.NextString()
+			traceID = traceIDGenerator.NextIDString()
 		}
 
 		// 3. 将 TraceID 存储在 Gin 上下文中

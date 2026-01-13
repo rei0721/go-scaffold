@@ -102,4 +102,27 @@ func (a *App) reload(old, new *config.Config) {
 			a.Logger.Info("logger reloaded successfully")
 		}
 	}
+
+	// executor
+	// 检查执行器配置是否变化
+	if isExecutorConfigChanged(old, new) {
+		a.Logger.Info("executor configuration changed, reloading executor...")
+
+		// 只有在 Executor 不为 nil 且新配置启用了执行器时才重载
+		if a.Executor != nil && new.Executor.Enabled {
+			// 转换配置格式
+			newExecutorConfigs := makeExecutorConfigs(new)
+
+			// 原子化重载执行器配置
+			if err := a.Executor.Reload(newExecutorConfigs); err != nil {
+				a.Logger.Error("failed to reload executor", "error", err)
+			} else {
+				a.Logger.Info("executor reloaded successfully", "pools", len(newExecutorConfigs))
+			}
+		} else if !new.Executor.Enabled {
+			a.Logger.Info("executor disabled in new config")
+		} else {
+			a.Logger.Warn("executor is nil, cannot reload configuration")
+		}
+	}
 }

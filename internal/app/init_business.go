@@ -14,7 +14,7 @@ func initBusiness(app *App) error {
 	userRepo := repository.NewUserRepository(app.DB.DB())
 
 	// 初始化 service layer (with dependency injection)
-	userService := service.NewUserService(userRepo, app.Scheduler)
+	userService := service.NewUserService(userRepo, app.Executor)
 
 	// 初始化 handler layer
 	userHandler := handler.NewUserHandler(userService)
