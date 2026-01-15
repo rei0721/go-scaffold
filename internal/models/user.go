@@ -1,5 +1,9 @@
 package models
 
+import (
+	rbacmodels "github.com/rei0721/rei0721/pkg/rbac/models"
+)
+
 // User 表示系统中的用户实体
 // 它嵌入了 BaseModel 以继承公共字段,并添加了用户特定的字段
 type User struct {
@@ -32,6 +36,11 @@ type User struct {
 	// 0: 未激活(inactive) - 用户被禁用或未完成激活流程
 	// gorm:"default:1" 默认为激活状态,新用户注册后即可使用
 	Status int `gorm:"default:1" json:"status"`
+
+	// Roles 用户拥有的角色列表
+	// many2many:user_roles 指定多对多关联的中间表表名
+	// 使用 pkg/rbac/models 中的 Role 类型
+	Roles []rbacmodels.Role `gorm:"many2many:user_roles" json:"roles,omitempty"`
 }
 
 // TableName 返回 User 模型对应的数据库表名

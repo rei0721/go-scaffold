@@ -6,6 +6,8 @@
 // - 便于切换日志实现,无需修改业务代码
 package logger
 
+import "github.com/rei0721/rei0721/pkg/executor"
+
 // Logger 定义统一的日志接口
 // 这是一个抽象接口,具体实现在 zap.go 中
 // 设计考虑:
@@ -119,6 +121,16 @@ type Logger interface {
 	// Reloader 嵌入重载接口
 	// 使 Logger 支持运行时配置热更新
 	Reloader
+
+	// SetExecutor 设置协程池管理器（延迟注入）
+	// 用于异步日志操作（如Sync刷新）
+	// 参数:
+	//   exec: 协程池管理器实例，为nil时禁用异步功能
+	// 线程安全:
+	//   使用原子操作保证并发安全
+	// 使用场景:
+	//   在Logger初始化后，Executor就绪时调用
+	SetExecutor(exec executor.Manager)
 }
 
 // Reloader 定义日志配置重载接口

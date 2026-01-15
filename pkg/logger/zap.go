@@ -5,10 +5,14 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"sync/atomic"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
+
+	"github.com/rei0721/rei0721/pkg/executor"
+	"github.com/rei0721/rei0721/types/constants"
 )
 
 // 编译时检查 zapLogger 是否实现了 Logger 接口
@@ -41,6 +45,11 @@ type zapLogger struct {
 	// config 保存配置用于 Reload 时对比
 	// 也用于确保重载时使用正确的配置
 	config *Config
+
+	// executor 协程池管理器（可选）
+	// 使用 atomic.Value 实现无锁读取
+	// 用于异步日志操作（如Sync刷新）
+	executor atomic.Value // 存储 executor.Manager
 }
 
 // New 基于提供的配置创建一个新的 Logger 实例
@@ -503,6 +512,7 @@ func (l *zapLogger) With(keysAndValues ...interface{}) Logger {
 
 // Sync 刷新缓冲的日志条目
 // 实现 Logger 接口
+// 支持异步模式：如果设置了executor，使用协程池异步刷新
 // 为什么需要 Sync:
 // - zap 为了性能会缓冲日志
 // - 如果程序突然退出,缓冲的日志可能丢失
@@ -514,16 +524,41 @@ func (l *zapLogger) With(keysAndValues ...interface{}) Logger {
 //
 // 返回:
 //
-//	error: 刷新失败时的错误
+//	error: 刷新失败时的错误（同步模式）
+//	       nil（异步模式，错误会输出到stderr）
 func (l *zapLogger) Sync() error {
-	// sugar.Sync 刷新底层 logger
-	// 注意: 在某些平台上(如 Linux)可能返回无害的错误
-	// 例如: sync /dev/stdout: invalid argument
-	// 这些错误通常可以忽略
 	l.mu.RLock()
 	sugar := l.sugar
 	l.mu.RUnlock()
+
+	// 如果有executor，异步执行Sync
+	if exec := l.getExecutor(); exec != nil {
+		_ = exec.Execute(constants.PoolLogger, func() {
+			if err := sugar.Sync(); err != nil {
+				// 异步模式下，错误输出到stderr避免递归
+				fmt.Fprintf(os.Stderr, "logger sync error: %v\n", err)
+			}
+		})
+		return nil
+	}
+
+	// 没有executor时同步执行
 	return sugar.Sync()
+}
+
+// SetExecutor 设置协程池管理器
+// 实现 Logger 接口，支持延迟注入
+// 使用 atomic.Value 实现原子替换，无需加锁
+func (l *zapLogger) SetExecutor(exec executor.Manager) {
+	l.executor.Store(exec)
+}
+
+// getExecutor 获取当前executor（内部辅助方法）
+func (l *zapLogger) getExecutor() executor.Manager {
+	if exec := l.executor.Load(); exec != nil {
+		return exec.(executor.Manager)
+	}
+	return nil
 }
 
 // Reload 使用新配置重新加载日志系统

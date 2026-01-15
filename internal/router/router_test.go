@@ -23,7 +23,7 @@ func TestHealthEndpoint(t *testing.T) {
 	log := logger.Default()
 
 	// Create router with nil handler (health endpoint doesn't need it)
-	r := New(&handler.UserHandler{}, log)
+	r := New(&handler.UserHandler{}, &handler.RBACHandler{}, log, nil, nil)
 
 	// Setup router with default middleware config
 	cfg := middleware.DefaultMiddlewareConfig()

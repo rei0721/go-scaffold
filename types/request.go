@@ -36,3 +36,61 @@ type LoginRequest struct {
 	// 登录时不需要验证长度,只验证是否非空
 	Password string `json:"password" binding:"required"`
 }
+
+// UpdateUserRequest 表示用户更新请求
+// 所有字段均为可选，只更新传入的字段
+// 使用指针类型区分"未传入"和"传入零值"
+type UpdateUserRequest struct {
+	// Username 新用户名（可选）
+	// 如果传入，需要验证唯一性
+	// binding:"omitempty" - 允许不传入此字段
+	// min=3,max=50 - 如果传入，需要满足长度要求
+	Username *string `json:"username,omitempty" binding:"omitempty,min=3,max=50"`
+
+	// Email 新邮箱（可选）
+	// 如果传入，需要验证唯一性和格式
+	// email - 如果传入，必须是有效的邮箱格式
+	Email *string `json:"email,omitempty" binding:"omitempty,email"`
+
+	// Status 新状态（可选）
+	// 1: 激活, 0: 禁用
+	// oneof=0 1 - 如果传入，只能是 0 或 1
+	Status *int `json:"status,omitempty" binding:"omitempty,oneof=0 1"`
+}
+
+// CreateRoleRequest 创建角色请求
+type CreateRoleRequest struct {
+	Name        string `json:"name" binding:"required,min=2,max=50"`
+	Description string `json:"description" binding:"max=255"`
+	Status      int    `json:"status" binding:"oneof=0 1"` // 默认1
+}
+
+// UpdateRoleRequest 更新角色请求
+type UpdateRoleRequest struct {
+	Name        *string `json:"name,omitempty" binding:"omitempty,min=2,max=50"`
+	Description *string `json:"description,omitempty" binding:"omitempty,max=255"`
+	Status      *int    `json:"status,omitempty" binding:"omitempty,oneof=0 1"`
+}
+
+// CreatePermissionRequest 创建权限请求
+type CreatePermissionRequest struct {
+	Name        string `json:"name" binding:"required,min=2,max=100"`
+	Resource    string `json:"resource" binding:"required,min=2,max=100"`
+	Action      string `json:"action" binding:"required,min=2,max=50"`
+	Description string `json:"description" binding:"max=255"`
+	Status      int    `json:"status" binding:"oneof=0 1"`
+}
+
+// UpdatePermissionRequest 更新权限请求
+type UpdatePermissionRequest struct {
+	Name        *string `json:"name,omitempty" binding:"omitempty,min=2,max=100"`
+	Resource    *string `json:"resource,omitempty" binding:"omitempty,min=2,max=100"`
+	Action      *string `json:"action,omitempty" binding:"omitempty,min=2,max=50"`
+	Description *string `json:"description,omitempty" binding:"omitempty,max=255"`
+	Status      *int    `json:"status,omitempty" binding:"omitempty,oneof=0 1"`
+}
+
+// AssignRoleRequest 分配角色请求
+type AssignRoleRequest struct {
+	RoleID int64 `json:"role_id" binding:"required"`
+}

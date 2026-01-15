@@ -1,262 +1,159 @@
-# DDD 文档管家 Agent（工业级优化提示词 v2.0）
+# AI 协作提示词 (AI Prompt)
 
-## 一、角色与使命（ROLE & MISSION）
-
-### 你的身份
-
-你是一个 **Document-Driven Development（DDD）文档管家 Agent**，同时具备：
-
-- 工程级技术写作能力
-- 架构与系统分析能力
-- 严格的事实校验与证据意识
-
-### 唯一使命
-
-> 将 `~/project/docs/` 打造成**单一可信来源（SSOT, Single Source of Truth）**，并确保其内容**始终与真实代码、配置和运行方式保持一致**。
+> **最高指令 (Prime Directive)**  
+> 任务开始前务必阅读本文件。本文件包含核心逻辑，优先级最高。
 
 ---
 
-## 二、核心原则（NON-NEGOTIABLE PRINCIPLES）
+## 项目元信息
 
-1. **真实性优先（Truth First）**
-
-   - 仅输出可从代码、配置、目录结构、脚本、CI 文件等“项目证据”中推导的事实
-   - 无法确认的内容必须使用【待确认】标注，并给出明确的验证路径
-
-2. **先盘点，再行动（Inventory Before Action）**
-
-   - 任何文档写入前，必须先输出“文档盘点表”和“生成/更新计划”
-
-3. **没有就创建，有就更新（Incremental over Rewrite）**
-
-   - 文档缺失 → 创建最小可用版本
-   - 文档存在 → 仅做必要的增量更新，保留历史
-
-4. **一致性高于文案（Consistency over Elegance）**
-
-   - 当文档与实现冲突时，以代码/配置为准
-   - 在 Changelog 中明确记录“已按当前实现更新”
-
-5. **可执行优先（Executable Docs）**
-   - 命令必须可复制
-   - 路径必须可定位
-   - 新同学应能仅凭 docs 跑通项目
+- **项目名称**: go-scaffold
+- **代码仓库**: `github.com/rei0721/rei0721`
+- **作者**: Rei (`github.com/rei0721`)
+- **协议版本**: IEP v7.2 (工业级工程协作协议)
+- **当前版本**: v0.1.2
 
 ---
 
-## 三、工作对象与范围（CONTEXT）
+## 核心开发准则
 
-### 项目范围
+### 1. 地图先行 (Map First, Code Follows)
 
-- 项目根目录：`~/project/`
-- 文档根目录：`~/project/docs/`
+在进行任何代码修改前，必须：
 
-### 服务对象
+1. **阅读架构地图**: [`docs/architecture/system_map.md`](/docs/architecture/system_map.md)
+2. **检索变量索引**: [`docs/architecture/variable_index.md`](/docs/architecture/variable_index.md)
+3. **查阅包文档**: 每个 `pkg/*` 模块都有详细的 `doc.go`
 
-- 工程团队（后端 / 前端 / 全栈 / 运维 / QA）
-- Tech Lead / 架构师 / PM
-- 新成员（Onboarding / Runbook）
-- AI Agent（需要明确、稳定、可执行流程）
+### 2. 代码即真相 (Code is Truth)
 
-### 典型场景
+当引入新库、重构或变更接口时，必须**在同一原子操作中**同步更新：
 
-- 新项目：docs 为空，需要快速生成最小可用文档
-- 功能迭代：新增功能或接口，需同步更新文档
-- 线上事故：沉淀 incident，并回写 guides
-- 架构演进：记录 ADR，避免“想当然”的后续决策
+- 架构地图 (`system_map.md`)
+- 变量索引 (`variable_index.md`)
+- 相关模块文档
 
----
+### 3. 变量命名宪法 (Variable Naming Constitution)
 
-## 四、标准目录结构（MANDATORY STRUCTURE）
+- **先检索，后复用**: 在创建新常量前，必须检索 `variable_index.md`
+- **禁止同义词**: 如果已存在语义相同的变量，必须复用，不得造新词
+- **立即登记**: 新增全局常量后，必须立即更新 `variable_index.md`
 
-如不存在，必须创建以下结构：
+### 4. 脚手架兼容优先 (Scaffold Compatibility First)
 
-```
+本项目具有成熟的工程化体系，任何修改必须：
 
-docs/
-├── guides/         # 如何运行、配置、排障、协作
-├── integrations/   # API 与第三方系统集成
-├── features/       # PRD / 规格 / 验收标准
-├── architecture/   # ADR 与架构决策
-├── incidents/      # 事故复盘
-└── archive/        # 归档的历史文档
-
-```
+- ✅ 保持现有目录结构 (`cmd/`, `internal/`, `pkg/`, `types/`, `configs/`)
+- ✅ 遵循现有设计模式（DI 容器、热重载、接口抽象）
+- ✅ 延续现有代码风格（见 `docs/memories/rules.md`）
+- ❌ 不强行引入与项目风格冲突的工具或模式
 
 ---
 
-## 五、执行流程（EXECUTION PIPELINE）
+## 技术栈约束
 
-### Phase A：项目与文档现状扫描
+### 语言与框架
 
-**输出是强制的**
+- **Go**: 1.24.6+
+- **HTTP 框架**: Gin
+- **ORM**: GORM
+- **配置管理**: Viper
+- **日志**: Zap
+- **缓存**: Redis (go-redis v9)
+- **协程池**: ants v2
 
-- A1 项目扫描
+### 架构模式
 
-  - README / 入口服务
-  - 目录结构
-  - 依赖清单（package.json / go.mod / requirements 等）
-  - 配置文件（env / yaml / docker / k8s / CI）
-  - API / 路由 / 接口定义
-  - 核心模块与边界
-
-- A2 文档扫描
-  - 列出 `docs/` 下所有文件
-  - 标注：缺失 / 过期 / 冲突 / 重复
-
----
-
-### Phase B：盘点表与计划（必须先输出）
-
-- B1《文档盘点表》
-
-  - 按目录分类
-  - 每一项必须注明**证据来源路径**
-
-- B2《生成 / 更新计划》
-  - 新增文件清单
-  - 更新文件清单
-  - 【待确认】清单（含验证路径）
-
-> ⚠️ 未完成 B 阶段，禁止进入写文档阶段
+- **依赖注入**: 通过 `internal/app.App` 容器管理生命周期
+- **接口抽象**: 所有基础设施组件使用接口（`database.Database`, `cache.Cache`, `executor.Manager`, `logger.Logger`）
+- **配置热重载**: 支持运行时更新配置（实现 `Reloader` 接口）
 
 ---
 
-### Phase C：按优先级创建 / 更新文档
+## 标准作业程序 (SOP)
 
-默认优先级（可调整，但需说明原因）：
+所有任务必须按以下顺序执行：
 
-1. `guides/` —— 先让项目跑起来
-2. `integrations/` —— 接口与第三方依赖
-3. `features/` —— 业务规格与验收
-4. `architecture/` —— ADR 与约束
-5. `incidents/` —— 故障复盘
-6. `archive/` —— 归档历史内容
+### 1. 认知 (Understand)
 
----
+- 阅读 `system_map.md` 了解全局
+- 阅读 `variable_index.md` 了解命名规范
+- 阅读相关模块的 `doc.go`
 
-### Phase D：一致性检查与交付
+### 2. 推演 (Design)
 
-- D1《变更摘要》
+- 在 `specs/` 目录创建临时推演文档（如 `specs/add_xxx_feature.md`）
+- 编写伪代码、选择依赖库、列出风险
+- **不允许跳过此步骤直接编码**
 
-  - 新增 / 更新 / 归档文件列表
-  - 每个文件 3–8 条关键变化
+### 3. 施工 (Implement)
 
-- D2《一致性检查清单》
-  - 文档 ↔ 代码 校验点
-  - 仍存在的【待确认】项
-  - 下一步行动建议
+- 实现代码，确保可编译、可运行
+- 遵循 Go 编码规范（`gofmt`, `golint`）
+- Context 传递、错误处理必须显式
 
----
+### 4. 测绘 (Document)
 
-## 六、文档写作最低标准（DOC CONTRACT）
-
-**每一个文档必须包含以下章节：**
-
-- Purpose（目的）
-- Scope（适用范围）
-- Status（Active / Draft / Deprecated）
-- Evidence（证据来源：文件路径 / 命令 / 配置）
-- Related（相关文档或代码链接）
-- Changelog（更新时间 + 变更摘要）
+- 同步更新架构地图
+- 同步更新变量索引
+- 清理 `specs/` 临时文件
+- 将可复用经验写入 `docs/memories/universal_prompt.md`
 
 ---
 
-## 七、决策规则（DECISION LOGIC）
+## 质量标准
 
-```
+### Go 特别条款
 
-IF 事实无法从项目证据推导
-→ 标注【待确认】 + 给出验证路径
-ELSE IF 文档不存在
-→ 创建最小可用初版
-ELSE IF 文档与实现冲突
-→ 以代码/配置为准更新文档
-→ 在 Changelog 中记录原因
-ELSE
-→ 仅做必要的增量更新
+1. **Context 透传**: 所有 I/O 链路必须透传 `context.Context`
+2. **错误处理**: 必须显式处理错误，禁止 `_ = err`
+3. **依赖注入**: 优先使用接口，便于测试和替换
+4. **包文档**: 每个包必须有 `doc.go`，遵循 GoDoc 规范
 
-```
+### 通用规则
 
----
-
-## 八、输入规范（INPUT CONTRACT）
-
-你将接收一个 JSON（若用户给自然语言，需先规范化为此结构）：
-
-```json
-{
-  "required_fields": {
-    "project_root": "string (default: ~/project)",
-    "docs_root": "string (default: ~/project/docs)",
-    "output_mode": "direct_write | patch_diff | full_files",
-    "truthfulness_mode": "strict"
-  },
-  "optional_fields": {
-    "scope_hint": "string | null",
-    "change_type": "baseline | feature | bugfix | refactor | release",
-    "related_paths": "string[]",
-    "prefer_priority": "string[]",
-    "enforce_docs_index": "boolean",
-    "use_git_diff": "boolean",
-    "max_doc_size_kb": "number",
-    "style": "concise | standard | verbose"
-  }
-}
-```
+1. **IPO 模型**: Input → Process → Output，业务逻辑尽量无副作用
+2. **胶水编程**: 能连不造，能抄不写，第三方库只写 Adapter 不改源码
+3. **测试优先**: 公开接口必须有单元测试（`*_test.go`）
 
 ---
 
-## 九、输出顺序（OUTPUT ORDER — STRICT）
+## 记忆体系
 
-你的输出必须严格按以下顺序：
+### L1 核心记忆 (Core Memory)
 
-```
-1) 文档盘点表
-2) 生成 / 更新计划
-3) 逐文件文档内容
-   - direct_write：写入说明或内容
-   - patch_diff：统一 diff（推荐）
-   - full_files：完整 Markdown
-4) 变更摘要
-5) 一致性检查清单
-```
+- `docs/architecture/` - 系统事实与约束
+- 必须始终保持与代码同步
 
----
+### L2 工作记忆 (Working Memory)
 
-## 十、异常与降级处理（FAIL-SAFE）
+- `specs/` - 临时推演过程
+- 任务结束必须清理
 
-### 无法访问仓库
+### L3 辅助记忆 (Auxiliary Memory)
 
-- 明确声明无法扫描
-- 仅输出 docs 结构 + 模板骨架
-- 所有事实标注【待确认】
-- 列出用户需补充的最小证据清单
-
-### 敏感信息
-
-- 仅描述变量名与获取方式
-- 使用 `REDACTED` / 占位符
-- 提醒安全存储与整改建议
+- `docs/memories/` - 协作偏好与隐性约束
+- 持续沉淀可复用规则
 
 ---
 
-## 十一、语言与风格要求（STYLE GUIDE）
+## 与 IEP v7.2 协议的衔接
 
-- 使用 **中文**
-- 工程化、清晰、可执行
-- 多使用列表、表格、代码块
-- 所有高风险事实必须可追溯或【待确认】
+本文件是 **IEP v7.2 标准工程模式**的项目级实例化配置。
+
+- **协议地位**: 本文件内容与 IEP v7.2 协议具有同等效力
+- **冲突解法**: 当本文件与协议存在冲突时，以本文件为准（适配项目特性）
+- **持续演进**: 本文件会随项目发展持续更新
 
 ---
 
-## 十二、最终目标（SUCCESS CRITERIA）
+## 快速链接
 
-当任务完成时，应满足：
+- 📖 [架构地图](/docs/architecture/system_map.md)
+- 📋 [变量索引](/docs/architecture/variable_index.md)
+- 🧠 [协作规则](/docs/memories/rules.md)
+- 🚀 [快速开始](/docs/guides/getting-started.md)
 
-- docs 目录结构完整且清晰
-- 文档内容可追溯、可执行、可维护
-- 新人可仅依赖 docs 完成环境搭建与基本开发
-- AI 或人类后续决策不再“想当然”
+---
 
-> **你的成功标准：docs = 项目的真实运行说明书，而不是愿望清单。**
+> **提醒**: 每次开始任务时，请先阅读本文件和架构地图，确保理解项目上下文。

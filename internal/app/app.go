@@ -6,13 +6,14 @@ package app
 import (
 	"context"
 	"fmt"
-	"net/http"
 
 	"github.com/gin-gonic/gin"
 
 	"github.com/rei0721/rei0721/pkg/cache"
 	"github.com/rei0721/rei0721/pkg/executor"
+	"github.com/rei0721/rei0721/pkg/httpserver"
 	"github.com/rei0721/rei0721/pkg/i18n"
+	"github.com/rei0721/rei0721/pkg/jwt"
 	"github.com/rei0721/rei0721/pkg/utils"
 
 	"github.com/rei0721/rei0721/internal/config"
@@ -59,8 +60,13 @@ type App struct {
 	// 包含所有HTTP路由和中间件配置
 	Router *gin.Engine
 
-	// httpServer HTTP 服务器实例
-	HTTPServer *http.Server
+	// HTTPServer HTTP 服务器实例
+	// 使用 pkg/httpserver 接口，支持配置热更新
+	HTTPServer httpserver.HTTPServer
+
+	// JWT JWT认证管理器
+	// 用于生成和验证访问令牌
+	JWT jwt.JWT
 }
 
 // Options 创建新 App 时的配置选项
@@ -69,6 +75,10 @@ type Options struct {
 	// ConfigPath 配置文件的路径
 	// 支持相对路径和绝对路径
 	ConfigPath string
+
+	// Mode 启动模式
+	// 支持 ModeServer（默认）和 ModeInitDB 两种模式
+	Mode AppMode
 }
 
 // New 创建一个新的 App 实例
@@ -92,6 +102,11 @@ type Options struct {
 func New(opts Options) (*App, error) {
 	app := &App{}
 
+	// 设置默认模式
+	if opts.Mode == "" {
+		opts.Mode = ModeServer
+	}
+
 	// 初始化配置管理器并加载配置
 	// 配置是整个应用的基础,必须最先加载
 	if err := initConfig(app, opts); err != nil {
@@ -108,6 +123,7 @@ func New(opts Options) (*App, error) {
 	// debug
 	app.Logger.Debug("app initialized drive id", "drive_id", utils.GenerateDeviceID("rei0721"))
 	app.Logger.Debug("app initialized config path", "config_path", opts.ConfigPath)
+	app.Logger.Debug("app initialized mode", "mode", opts.Mode)
 
 	// 将日志器注册到配置管理器
 	// 这样配置变更时可以记录日志
@@ -118,19 +134,80 @@ func New(opts Options) (*App, error) {
 	// Config 调试配置
 	debugConfig(app, opts)
 
-	// 初始化应用
-	initApps := []func(app *App) error{
-		initI18n,     // 初始化i18n
-		initCache,    // 初始化 Redis
-		initDatabase, // 初始化数据库连接
-		initExecutor, // 初始化协程池
-		initBusiness, // 初始化业务
-	}
+	// 根据启动模式执行不同的初始化流程
+	if opts.Mode == ModeInitDB {
+		// initdb 模式：仅初始化到数据库，然后执行初始化
+		initApps := []func(app *App) error{
+			initI18n,     // 初始化 i18n（用于日志消息）
+			initDatabase, // 初始化数据库连接
+		}
 
-	for _, initApp := range initApps {
-		if err := initApp(app); err != nil {
+		for _, initApp := range initApps {
+			if err := initApp(app); err != nil {
+				return nil, err
+			}
+		}
+
+		// 初始化 Executor
+		if err := initExecutor(app); err != nil {
 			return nil, err
 		}
+
+		// ⭐ Executor初始化完成后，注入到Logger
+		if app.Executor != nil && app.Logger != nil {
+			app.Logger.SetExecutor(app.Executor)
+			app.Logger.Debug("executor injected into logger")
+		}
+
+		// 初始化业务逻辑(包括 Router)
+		if err := initBusiness(app); err != nil {
+			return nil, err
+		}
+
+		// 执行数据库初始化
+		if err := runInitDB(app); err != nil {
+			return nil, err
+		}
+
+		app.Logger.Info("initdb mode completed")
+		return app, nil
+	}
+
+	// server 模式：完整初始化流程
+	// 阶段1：核心基础设施
+	if err := initI18n(app); err != nil {
+		return nil, err
+	}
+	if err := initCache(app); err != nil {
+		return nil, err
+	}
+	if err := initDatabase(app); err != nil {
+		return nil, err
+	}
+
+	// 阶段2：初始化Executor
+	if err := initExecutor(app); err != nil {
+		return nil, err
+	}
+
+	// ⭐ Executor初始化完成后，立即注入到Logger
+	if app.Executor != nil && app.Logger != nil {
+		app.Logger.SetExecutor(app.Executor)
+		app.Logger.Debug("executor injected into logger")
+	}
+
+	// 阶段2.5：初始化JWT认证
+	if err := initJWT(app); err != nil {
+		return nil, err
+	}
+
+	// 阶段3：业务层和HTTP服务器
+	// 注意：initBusiness和initHTTPServer内部会自动注入executor
+	if err := initBusiness(app); err != nil {
+		return nil, err
+	}
+	if err := initHTTPServer(app); err != nil {
+		return nil, err
 	}
 
 	// Start config file watching for hot-reload
@@ -167,10 +244,11 @@ func New(opts Options) (*App, error) {
 //
 //	error: 启动失败时的错误
 func (a *App) Start(ctx context.Context) error {
-	// 构造监听地址
-	// 格式: ":8080" 表示监听所有网络接口的 8080 端口
-	// Port 如果为 0 则随机分配一个未使用的端口
-	go listenHttpServer(a)
+	// 启动 HTTP 服务器（非阻塞）
+	// 使用新的 httpserver 包
+	if err := a.HTTPServer.Start(ctx); err != nil {
+		return fmt.Errorf("failed to start HTTP server: %w", err)
+	}
 
 	return nil
 }
@@ -218,6 +296,7 @@ func (a *App) Shutdown(ctx context.Context) error {
 	var errs []error
 
 	// 关闭 HTTP 服务器
+	// 使用新的 httpserver 接口
 	// 步骤:
 	// - 停止接收新连接
 	// - 等待现有请求处理完成

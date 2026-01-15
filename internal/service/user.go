@@ -9,6 +9,10 @@ package service
 import (
 	"context"
 
+	"github.com/rei0721/rei0721/pkg/cache"
+	"github.com/rei0721/rei0721/pkg/executor"
+	"github.com/rei0721/rei0721/pkg/jwt"
+	"github.com/rei0721/rei0721/pkg/logger"
 	"github.com/rei0721/rei0721/types"
 	"github.com/rei0721/rei0721/types/result"
 )
@@ -101,4 +105,74 @@ type UserService interface {
 	//   - 只返回未被软删除的用户
 	//   - 服务层会对 page 和 pageSize 进行验证
 	List(ctx context.Context, page, pageSize int) (*result.PageResult[types.UserResponse], error)
+
+	// Update 更新用户信息
+	// 这是用户更新的业务接口
+	// 参数:
+	//   ctx: 上下文
+	//   id: 用户 ID
+	//   req: 更新请求，只更新传入的字段
+	// 返回:
+	//   *types.UserResponse: 更新后的用户信息
+	//   error: 更新错误，如:
+	//     - ErrUserNotFound: 用户不存在
+	//     - ErrDuplicateUsername: 用户名已被占用
+	//     - ErrDuplicateEmail: 邮箱已被占用
+	//     - ErrDatabaseError: 数据库错误
+	// 业务流程:
+	//   1. 验证用户是否存在
+	//   2. 如果更新用户名，检查唯一性
+	//   3. 如果更新邮箱，检查唯一性
+	//   4. 更新用户记录
+	//   5. 失效缓存
+	Update(ctx context.Context, id int64, req *types.UpdateUserRequest) (*types.UserResponse, error)
+
+	// Delete 删除用户（软删除）
+	// 这是用户删除的业务接口
+	// 参数:
+	//   ctx: 上下文
+	//   id: 用户 ID
+	// 返回:
+	//   error: 删除错误，如:
+	//     - ErrUserNotFound: 用户不存在
+	//     - ErrDatabaseError: 数据库错误
+	// 业务流程:
+	//   1. 验证用户是否存在
+	//   2. 软删除用户记录
+	//   3. 失效缓存
+	// 注意:
+	//   这是软删除，数据不会真正删除，只是标记 DeletedAt
+	Delete(ctx context.Context, id int64) error
+
+	// SetExecutor 设置协程池管理器（延迟注入）
+	// 用于异步任务处理
+	// 参数:
+	//   exec: 协程池管理器实例，为nil时禁用executor功能
+	// 线程安全:
+	//   使用原子操作保证并发安全
+	SetExecutor(exec executor.Manager)
+
+	// SetCache 设置缓存实例（延迟注入）
+	// 用于用户数据缓存
+	// 参数:
+	//   c: 缓存实例，为nil时禁用缓存功能
+	// 线程安全:
+	//   使用原子操作保证并发安全
+	SetCache(c cache.Cache)
+
+	// SetLogger 设置日志记录器（延迟注入）
+	// 用于记录业务操作日志
+	// 参数:
+	//   l: 日志实例，为nil时禁用日志功能
+	// 线程安全:
+	//   使用原子操作保证并发安全
+	SetLogger(l logger.Logger)
+
+	// SetJWT 设置JWT管理器（延迟注入）
+	// 用于生成访问令牌
+	// 参数:
+	//   j: JWT实例，为nil时使用占位符token
+	// 线程安全:
+	//   使用原子操作保证并发安全
+	SetJWT(j jwt.JWT)
 }

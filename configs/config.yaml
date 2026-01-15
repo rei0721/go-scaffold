@@ -134,9 +134,44 @@ executor:
       expiry: 30
       nonBlocking: false # 阻塞模式(池满时等待)
 
+    # 缓存操作池
+    # 用于异步缓存更新、预热等操作
+    - name: cache
+      size: 30
+      expiry: 15
+      nonBlocking: true # 非阻塞模式(缓存操作可降级)
+
+    # 日志处理池
+    # 用于异步日志刷新、日志上传等操作
+    - name: logger
+      size: 10
+      expiry: 60
+      nonBlocking: false # 阻塞模式(确保日志不丢失)
+
     # 后台任务池
     # 用于处理邮件发送、文件处理等后台任务
     - name: background
       size: 30
       expiry: 60
       nonBlocking: true
+
+# JWT 认证配置
+# 用于token的生成和验证
+jwt:
+  # 签名密钥（必须从环境变量设置）
+  # 生产环境: export JWT_SECRET=your-secret-key-at-least-32-characters-long
+  # 安全要求: 至少32个字符的随机字符串
+  secret: "your-secret-key-must-be-at-least-32-characters-long" # 留空，从环境变量 JWT_SECRET 读取
+
+  # 令牌有效期（秒）
+  # 1小时 = 3600秒, 24小时 = 86400秒
+  # 根据业务安全要求调整:
+  #   - 高安全场景: 900-1800 (15-30分钟)
+  #   - 一般场景: 3600-7200 (1-2小时)
+  #   - 低敏感场景: 86400 (24小时)
+  expiresIn: 3600
+
+  # 签发者标识
+  # 用于标识token的来源系统
+  # 多系统环境下可以区分不同来源的token
+  issuer: "go-scaffold"

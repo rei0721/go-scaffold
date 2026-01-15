@@ -162,16 +162,47 @@ executor 包为 rei0721 项目提供了统一的异步任务执行基础设施�
 
 # 最佳实践
 
-## 1. 定义池名称常量
-
-在业务层定义池名称,而不是在 pkg 层:
-
-	// internal/service/constants.go
-	const (
-	    PoolNameHTTP     executor.PoolName = "http"
-	    PoolNameDatabase executor.PoolName = "database"
-	    PoolNameEmail    executor.PoolName = "email"
-	)
+// ## 1. 定义池名称常量
+//
+// 推荐在 types/constants 包中统一定义池名称常量:
+//
+//	// types/constants/executor.go
+//	package constants
+//
+//	import "github.com/rei0721/rei0721/pkg/executor"
+//
+//	const (
+//	    PoolHTTP       executor.PoolName = "http"
+//	    PoolDatabase   executor.PoolName = "database"
+//	    PoolCache      executor.PoolName = "cache"
+//	    PoolLogger     executor.PoolName = "logger"
+//	    PoolBackground executor.PoolName = "background"
+//	)
+//
+// 在业务代码中使用常量:
+//
+//	import "github.com/rei0721/rei0721/types/constants"
+//
+//	// 在 Service 层
+//	func (s *UserService) SendWelcomeEmail(userID int64) error {
+//	    return s.executor.Execute(constants.PoolBackground, func() {
+//	        // 异步发送欢迎邮件
+//	    })
+//	}
+//
+//	// 在 HTTP Handler 中
+//	func (h *Handler) LogRequest() error {
+//	    return h.executor.Execute(constants.PoolHTTP, func() {
+//	        // 异步记录请求日志
+//	    })
+//	}
+//
+//	// 在 Repository 层
+//	func (r *UserRepo) UpdateStatsAsync() error {
+//	    return r.executor.Execute(constants.PoolDatabase, func() {
+//	        // 异步更新统计数据
+//	    })
+//	}
 
 ## 2. 监控池状态
 

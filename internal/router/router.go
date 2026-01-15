@@ -1,9 +1,3 @@
-// Package router 提供 HTTP 路由定义和配置
-// 使用 Gin 框架,按 API 版本组织路由
-// 设计原则:
-// - 版本化路由(v1, v2...),便于 API 演进
-// - 分组管理,相关路由放在一起
-// - 中间件顺序正确,确保功能正常
 package router
 
 import (
@@ -13,7 +7,9 @@ import (
 
 	"github.com/rei0721/rei0721/internal/handler"
 	"github.com/rei0721/rei0721/internal/middleware"
+	"github.com/rei0721/rei0721/pkg/jwt"
 	"github.com/rei0721/rei0721/pkg/logger"
+	rbacservice "github.com/rei0721/rei0721/pkg/rbac/service"
 	"github.com/rei0721/rei0721/types/result"
 )
 
@@ -37,6 +33,15 @@ type Router struct {
 	// 用于记录路由相关的日志
 	// 也会传递给中间件使用
 	logger logger.Logger
+
+	// jwt JWT管理器
+	// 用于认证中间件验证token
+	// 如果为nil,则不启用认证保护
+	jwt jwt.JWT
+
+	// RBAC components
+	rbacHandler *handler.RBACHandler
+	rbacService rbacservice.RBACService
 }
 
 // New 创建一个新的 Router 实例
@@ -44,7 +49,10 @@ type Router struct {
 // 参数:
 //
 //	userHandler: 用户处理器,处理用户相关的请求
+//	rbacHandler: RBAC处理器
 //	log: 日志记录器,用于记录日志
+//	jwtManager: JWT管理器,用于认证中间件(可选,为nil时不启用认证保护)
+//	rbacService: RBAC服务,用于中间件权限检查(可选)
 //
 // 返回:
 //
@@ -53,10 +61,13 @@ type Router struct {
 // 使用场景:
 //
 //	在应用初始化时创建,然后调用 Setup() 配置路由
-func New(userHandler *handler.UserHandler, log logger.Logger) *Router {
+func New(userHandler *handler.UserHandler, rbacHandler *handler.RBACHandler, log logger.Logger, jwtManager jwt.JWT, rbacService rbacservice.RBACService) *Router {
 	return &Router{
 		userHandler: userHandler,
+		rbacHandler: rbacHandler,
 		logger:      log,
+		jwt:         jwtManager,
+		rbacService: rbacService,
 	}
 }
 
@@ -136,23 +147,33 @@ func (r *Router) registerRoutes() {
 	// - URL 清晰,易于理解
 	v1 := r.engine.Group("/api/v1")
 	{
-		// 用户相关路由组
-		// 所有用户操作都在 /api/v1/users 路径下
-		// 这是 RESTful 设计,资源名称使用复数形式
-		users := v1.Group("/users")
+		// ==================== 公开路由 ====================
+		// 这些路由不需要认证即可访问
+
+		// 认证相关路由组
+		auth := v1.Group("/auth")
 		{
-			// POST /api/v1/users/register - 用户注册
+			// POST /api/v1/auth/register - 用户注册
 			// 创建新用户账户
-			users.POST("/register", r.userHandler.Register)
+			auth.POST("/register", r.userHandler.Register)
 
-			// POST /api/v1/users/login - 用户登录
+			// POST /api/v1/auth/login - 用户登录
 			// 验证用户凭证并返回 token
-			users.POST("/login", r.userHandler.Login)
+			auth.POST("/login", r.userHandler.Login)
+		}
 
-			// users.POST("/login", func(ctx *gin.Context) {
-			// 	r.userHandler.Login(ctx)
-			// })
+		// ==================== 受保护路由 ====================
+		// 这些路由需要JWT认证才能访问
 
+		// 用户相关路由组(需要认证)
+		users := v1.Group("/users")
+
+		// 如果JWT管理器存在,应用认证中间件
+		if r.jwt != nil {
+			users.Use(middleware.AuthMiddleware(r.jwt))
+		}
+
+		{
 			// GET /api/v1/users/:id - 获取指定用户
 			// :id 是路径参数,例如 /api/v1/users/123
 			// RESTful 风格:使用 GET + ID 获取单个资源
@@ -162,11 +183,55 @@ func (r *Router) registerRoutes() {
 			// 查询参数: ?page=1&pageSize=10
 			// RESTful 风格:使用 GET 获取资源集合
 			users.GET("", r.userHandler.ListUsers)
+
+			// PUT /api/v1/users/:id - 更新指定用户
+			// :id 是路径参数,例如 /api/v1/users/123
+			// RESTful 风格:使用 PUT + ID 更新单个资源
+			users.PUT("/:id", r.userHandler.UpdateUser)
+
+			// DELETE /api/v1/users/:id - 删除指定用户(软删除)
+			// :id 是路径参数,例如 /api/v1/users/123
+			// RESTful 风格:使用 DELETE + ID 删除单个资源
+			users.DELETE("/:id", r.userHandler.DeleteUser)
 		}
 
 		// 未来可以在这里添加更多资源组:
 		// products := v1.Group("/products") { ... }
 		// orders := v1.Group("/orders") { ... }
+
+		// RBAC 管理路由 (需要认证和权限)
+		if r.rbacHandler != nil && r.rbacService != nil && r.jwt != nil {
+			// 角色管理 - 需要 manage Roles 权限
+			roles := v1.Group("/roles")
+			roles.Use(middleware.AuthMiddleware(r.jwt))
+
+			// 角色列表需要 roles:read
+			roles.GET("", middleware.RequirePermission(r.rbacService, "roles", "read"), r.rbacHandler.ListRoles)
+			roles.GET("/:id", middleware.RequirePermission(r.rbacService, "roles", "read"), r.rbacHandler.GetRole)
+
+			// 修改类操作需要 roles:write
+			roles.POST("", middleware.RequirePermission(r.rbacService, "roles", "write"), r.rbacHandler.CreateRole)
+			roles.PUT("/:id", middleware.RequirePermission(r.rbacService, "roles", "write"), r.rbacHandler.UpdateRole)
+			roles.DELETE("/:id", middleware.RequirePermission(r.rbacService, "roles", "write"), r.rbacHandler.DeleteRole)
+
+			// 权限管理
+			permissions := v1.Group("/permissions")
+			permissions.Use(middleware.AuthMiddleware(r.jwt))
+			permissions.GET("", middleware.RequirePermission(r.rbacService, "permissions", "read"), r.rbacHandler.ListPermissions)
+			permissions.POST("", middleware.RequirePermission(r.rbacService, "permissions", "write"), r.rbacHandler.CreatePermission)
+
+			// 补充用户角色管理路由到 users 组
+			// users 变量在上面定义，这里直接复用
+			if r.rbacHandler != nil && r.rbacService != nil {
+				// 获取用户角色 - 需要 users:read
+				users.GET("/:id/roles", middleware.RequirePermission(r.rbacService, "users", "read"), r.rbacHandler.GetUserRoles)
+
+				// 分配和撤销角色 - 需要 roles:assign
+				users.POST("/:id/roles", middleware.RequirePermission(r.rbacService, "roles", "assign"), r.rbacHandler.AssignRoleToUser)
+				users.DELETE("/:id/roles/:roleID", middleware.RequirePermission(r.rbacService, "roles", "assign"), r.rbacHandler.RevokeRoleFromUser)
+			}
+		}
+
 	}
 }
 

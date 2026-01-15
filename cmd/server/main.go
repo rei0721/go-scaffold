@@ -18,6 +18,7 @@ func main() {
 	// 注册命令
 	app.AddCommand(&DevCommand{})
 	app.AddCommand(&SqlGenCommand{})
+	app.AddCommand(&InitdbCommand{})
 
 	// 执行
 	if err := app.Run(os.Args[1:]); err != nil {

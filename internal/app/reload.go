@@ -7,6 +7,7 @@ import (
 	"github.com/rei0721/rei0721/internal/config"
 	"github.com/rei0721/rei0721/pkg/cache"
 	"github.com/rei0721/rei0721/pkg/database"
+	"github.com/rei0721/rei0721/pkg/httpserver"
 	"github.com/rei0721/rei0721/pkg/logger"
 )
 
@@ -123,6 +124,37 @@ func (a *App) reload(old, new *config.Config) {
 			a.Logger.Info("executor disabled in new config")
 		} else {
 			a.Logger.Warn("executor is nil, cannot reload configuration")
+		}
+	}
+
+	// HTTP Server
+	// 检查服务器配置是否变化
+	if isServerConfigChanged(old, new) {
+		a.Logger.Info("server configuration changed, reloading HTTP server...")
+
+		// 只有在 HTTPServer 不为 nil 时才重载
+		if a.HTTPServer != nil {
+			// 创建新的服务器配置
+			newServerCfg := &httpserver.Config{
+				Host:         new.Server.Host,
+				Port:         new.Server.Port,
+				ReadTimeout:  time.Duration(new.Server.ReadTimeout) * time.Second,
+				WriteTimeout: time.Duration(new.Server.WriteTimeout) * time.Second,
+				IdleTimeout:  time.Duration(new.Server.IdleTimeout) * time.Second,
+			}
+
+			// 使用超时上下文进行重载
+			ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+			defer cancel()
+
+			// 原子化重载 HTTP Server 配置
+			if err := a.HTTPServer.Reload(ctx, newServerCfg); err != nil {
+				a.Logger.Error("failed to reload HTTP server", "error", err)
+			} else {
+				a.Logger.Info("HTTP server reloaded successfully")
+			}
+		} else {
+			a.Logger.Warn("HTTPServer is nil, cannot reload configuration")
 		}
 	}
 }

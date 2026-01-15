@@ -294,6 +294,109 @@ func (h *UserHandler) ListUsers(c *gin.Context) {
 	})
 }
 
+// UpdateUser 处理用户更新请求
+// PUT /api/v1/users/:id
+// 路径参数:
+//
+//	id: 用户 ID (数字)
+//
+// 请求体:
+//
+//	{
+//	  "username": "newname",  // 可选
+//	  "email": "new@example.com",  // 可选
+//	  "status": 1  // 可选
+//	}
+//
+// 响应:
+//
+//	成功: 200 OK with UserResponse
+//	失败: 400/404/422/500 with error
+func (h *UserHandler) UpdateUser(c *gin.Context) {
+	traceID := getTraceID(c)
+
+	// 1. 获取路径参数中的用户 ID
+	idStr := c.Param("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, result.ErrorWithTrace(
+			bizErr.ErrInvalidParams,
+			"invalid user id",
+			traceID,
+		))
+		return
+	}
+
+	// 2. 解析请求体
+	var req types.UpdateUserRequest
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, result.ErrorWithTrace(
+			bizErr.ErrInvalidParams,
+			err.Error(),
+			traceID,
+		))
+		return
+	}
+
+	// 3. 调用 service 层更新用户
+	resp, err := h.service.Update(c.Request.Context(), id, &req)
+	if err != nil {
+		handleServiceError(c, err, traceID)
+		return
+	}
+
+	// 4. 返回更新后的用户信息
+	c.JSON(http.StatusOK, &result.Result[*types.UserResponse]{
+		Code:       bizErr.CodeSuccess,
+		Message:    "success",
+		Data:       resp,
+		TraceID:    traceID,
+		ServerTime: result.Success(resp).ServerTime,
+	})
+}
+
+// DeleteUser 处理用户删除请求
+// DELETE /api/v1/users/:id
+// 路径参数:
+//
+//	id: 用户 ID (数字)
+//
+// 响应:
+//
+//	成功: 200 OK
+//	失败: 400/404/500 with error
+func (h *UserHandler) DeleteUser(c *gin.Context) {
+	traceID := getTraceID(c)
+
+	// 1. 获取路径参数中的用户 ID
+	idStr := c.Param("id")
+	id, err := strconv.ParseInt(idStr, 10, 64)
+	if err != nil {
+		c.JSON(http.StatusBadRequest, result.ErrorWithTrace(
+			bizErr.ErrInvalidParams,
+			"invalid user id",
+			traceID,
+		))
+		return
+	}
+
+	// 2. 调用 service 层删除用户
+	err = h.service.Delete(c.Request.Context(), id)
+	if err != nil {
+		handleServiceError(c, err, traceID)
+		return
+	}
+
+	// 3. 返回成功响应（无数据）
+	c.JSON(http.StatusOK, &result.Result[interface{}]{
+		Code:       bizErr.CodeSuccess,
+		Message:    "user deleted successfully",
+		Data:       nil,
+		TraceID:    traceID,
+		ServerTime: result.Success[interface{}](nil).ServerTime,
+	})
+}
+
 // handleServiceError 将业务错误转换为合适的 HTTP 响应
 // 这是一个辅助函数,统一处理业务层返回的错误
 // 参数:
