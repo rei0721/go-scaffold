@@ -41,3 +41,18 @@ type LoginResponse struct {
 	// 嵌入用户数据,避免前端需要再次请求获取用户信息
 	User UserResponse `json:"user"`
 }
+
+// TokenResponse 表示 token 刷新响应
+type TokenResponse struct {
+	// AccessToken 新的访问令牌
+	AccessToken string `json:"access_token"`
+
+	// RefreshToken 新的刷新令牌（可选）
+	RefreshToken string `json:"refresh_token,omitempty"`
+
+	// ExpiresIn 访问令牌有效期(秒)
+	ExpiresIn int `json:"expires_in"`
+
+	// TokenType 令牌类型，通常为 "Bearer"
+	TokenType string `json:"token_type"`
+}

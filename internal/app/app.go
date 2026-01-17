@@ -21,6 +21,7 @@ import (
 	"github.com/rei0721/go-scaffold/internal/config"
 	"github.com/rei0721/go-scaffold/pkg/database"
 	"github.com/rei0721/go-scaffold/pkg/logger"
+	"github.com/rei0721/go-scaffold/types"
 )
 
 // App 是主应用程序容器,持有所有组件并管理它们的生命周期
@@ -48,6 +49,10 @@ type App struct {
 	// I18n 国际化
 	I18n      i18n.I18n
 	I18nUtils *utils.I18nUtils
+
+	// utils
+	// IDGenerator 分布式ID生成器
+	IDGenerator utils.IDGenerator
 
 	// Cache Redis 缓存
 	// 用于提高性能,减轻数据库压力
@@ -78,6 +83,10 @@ type App struct {
 	// RBAC 角色访问控制
 	// 管理用户权限和角色
 	RBAC rbac.RBAC
+
+	// Crypto 密码加密器
+	// 用于安全地加密和验证密码
+	Crypto types.Crypto
 
 	// Options 应用选项
 	Options Options
@@ -131,6 +140,12 @@ func New(opts Options) (*App, error) {
 
 	// 初始化 i18n
 	if err := app.initI18n(); err != nil {
+		return nil, err
+	}
+
+	// utils
+	// 初始化ID生成器
+	if err := app.InitIDGenerator(); err != nil {
 		return nil, err
 	}
 

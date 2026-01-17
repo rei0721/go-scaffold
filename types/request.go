@@ -94,3 +94,21 @@ type UpdatePermissionRequest struct {
 type AssignRoleRequest struct {
 	RoleID int64 `json:"role_id" binding:"required"`
 }
+
+// ChangePasswordRequest 表示修改密码请求
+type ChangePasswordRequest struct {
+	// OldPassword 原密码
+	// 需要验证原密码正确性，防止未授权修改
+	OldPassword string `json:"old_password" binding:"required"`
+
+	// NewPassword 新密码
+	// 最小长度 8 位，确保密码强度
+	NewPassword string `json:"new_password" binding:"required,min=8"`
+}
+
+// RefreshTokenRequest 表示刷新 token 请求
+type RefreshTokenRequest struct {
+	// RefreshToken 刷新令牌
+	// 用于获取新的访问令牌
+	RefreshToken string `json:"refresh_token" binding:"required"`
+}

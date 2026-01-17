@@ -57,7 +57,9 @@ go-scaffold/
 ├── pkg/                   # 可复用基础库（可导出）
 │   ├── cache/            # 缓存抽象（Redis）
 │   ├── cli/              # CLI 框架
+│   ├── crypto/           # 密码加密
 │   ├── database/         # 数据库抽象
+│   ├── dbtx/             # 数据库事务管理器
 │   ├── executor/         # 并发任务调度器
 │   ├── httpserver/       # HTTP 服务器封装
 │   ├── i18n/             # 国际化
@@ -549,6 +551,65 @@ type RBACService interface {
 // 在中间件中使用
 router.Use(middleware.RequirePermission(rbacService, "users", "write"))
 ```
+
+### 13. DBTx 事务管理器 (`pkg/dbtx`)
+
+**文档**: [`pkg/dbtx/doc.go`](/pkg/dbtx/doc.go)
+
+**职责**:
+
+- 提供优雅的数据库事务管理
+- 函数式 API 封装事务逻辑
+- 自动提交/回滚机制
+- 支持嵌套事务（SavePoint）
+- 集成超时控制和日志记录
+
+**核心接口**:
+
+```go
+type Manager interface {
+    WithTx(ctx context.Context, fn TxFunc) error
+    WithTxOptions(ctx context.Context, opts *TxOptions, fn TxFunc) error
+    GetDB() *gorm.DB
+}
+
+type TxFunc func(tx *gorm.DB) error
+```
+
+**使用示例**:
+
+```go
+// 创建管理器
+txManager, err := dbtx.NewManager(db, logger)
+
+// 执行事务
+err := txManager.WithTx(ctx, func(tx *gorm.DB) error {
+    // 1. 创建用户
+    if err := tx.Create(&user).Error; err != nil {
+        return err // 自动回滚
+    }
+
+    // 2. 分配角色
+    if err := tx.Create(&role).Error; err != nil {
+        return err // 自动回滚
+    }
+
+    return nil // 自动提交
+})
+```
+
+**设计亮点**:
+
+- ✅ **简化代码** - 减少 50%+ 的样板代码
+- ✅ **自动回滚** - panic 和 error 时自动回滚
+- ✅ **嵌套事务** - 基于 GORM SavePoint 机制
+- ✅ **类型安全** - 编译时检查事务函数签名
+
+**典型用例**:
+
+1. Service 层协调多个 Repository 的事务操作
+2. 用户注册（创建用户 + 分配默认角色）
+3. 订单创建（扣减库存 + 创建订单）
 
 ---
 

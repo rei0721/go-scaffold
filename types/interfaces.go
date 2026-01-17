@@ -2,8 +2,13 @@ package types
 
 import (
 	"github.com/rei0721/go-scaffold/pkg/cache"
+	"github.com/rei0721/go-scaffold/pkg/crypto"
 	"github.com/rei0721/go-scaffold/pkg/executor"
 )
+
+// Crypto 密码加密器类型别名
+// 使用 pkg/crypto.Crypto 接口
+type Crypto = crypto.Crypto
 
 // ExecutorInjectable 定义可注入executor的组件接口
 // 所有需要使用executor的组件应实现此接口

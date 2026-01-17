@@ -7,17 +7,22 @@ import (
 	"github.com/rei0721/go-scaffold/internal/repository"
 	"github.com/rei0721/go-scaffold/internal/router"
 	"github.com/rei0721/go-scaffold/internal/service"
+	"github.com/rei0721/go-scaffold/pkg/dbtx"
 )
 
 func (app *App) initBusiness() error {
 	// 初始化 repository layer
 	userRepo := repository.NewUserRepository(app.DB.DB())
 
+	authRepo := repository.NewAuthRepository(app.DB.DB())
+
 	// 初始化 service layer (不直接注入executor)
 	userService := service.NewUserService(userRepo)
 
 	// 注入 app 到 Service 层
-	app.setServiceAll(userService)
+	if _, err := app.setServiceAll(userService); err != nil {
+		return err
+	}
 
 	// 初始化 handler layer
 	userHandler := handler.NewUserHandler(userService)
@@ -71,6 +76,36 @@ func (app *App) setServiceAll(services ...service.Service) (*App, error) {
 		if app.RBAC != nil {
 			s.SetRBAC(app.RBAC)
 			app.Logger.Debug("RBAC injected into user service")
+		}
+
+		// ⭐ 延迟注入 IDGenerator 到 Service 层
+		if app.IDGenerator != nil {
+			s.SetIDGenerator(app.IDGenerator)
+			app.Logger.Debug("IDGenerator injected into user service")
+		}
+
+		// ⭐ 延迟注入 Crypto 到 Service 层
+		if app.Crypto != nil {
+			s.SetCrypto(app.Crypto)
+			app.Logger.Debug("Crypto injected into service")
+		}
+
+		// ⭐ 延迟注入 Database 到 Service 层
+		if app.DB != nil {
+			s.SetDB(app.DB)
+			app.Logger.Debug("Database injected into service")
+		}
+
+		// ⭐ 创建并注入 TxManager 到 Service 层
+		if app.DB != nil {
+			// 为每个Service创建事务管理器
+			txManager, err := dbtx.NewManager(app.DB.DB(), app.Logger)
+			if err != nil {
+				app.Logger.Error("failed to create TxManager", "error", err)
+			} else {
+				s.SetTxManager(txManager)
+				app.Logger.Debug("TxManager injected into service")
+			}
 		}
 	}
 	return app, nil

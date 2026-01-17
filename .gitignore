@@ -50,6 +50,10 @@ configs/config.local.yaml
 # ide
 .idea
 
+# git push
+commit.txt
+git_commit.txt
+
 # ai ide
 .kiro
 .trae

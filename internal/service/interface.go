@@ -2,10 +2,14 @@ package service
 
 import (
 	"github.com/rei0721/go-scaffold/pkg/cache"
+	"github.com/rei0721/go-scaffold/pkg/database"
+	"github.com/rei0721/go-scaffold/pkg/dbtx"
 	"github.com/rei0721/go-scaffold/pkg/executor"
 	"github.com/rei0721/go-scaffold/pkg/jwt"
 	"github.com/rei0721/go-scaffold/pkg/logger"
 	"github.com/rei0721/go-scaffold/pkg/rbac"
+	"github.com/rei0721/go-scaffold/pkg/utils"
+	"github.com/rei0721/go-scaffold/types"
 )
 
 type Service interface {
@@ -48,4 +52,36 @@ type Service interface {
 	// 线程安全:
 	//   使用原子操作保证并发安全
 	SetRBAC(r rbac.RBAC)
+
+	// SetIDGenerator 设置ID生成器（延迟注入）
+	// 用于生成分布式ID
+	// 参数:
+	//   idGenerator: ID生成器实例，为nil时禁用ID生成功能
+	// 线程安全:
+	//   使用原子操作保证并发安全
+	SetIDGenerator(idGenerator utils.IDGenerator)
+
+	// SetCrypto 设置密码加密器（延迟注入）
+	// 用于密码加密和验证
+	// 参数:
+	//   c: 密码加密器实例，为nil时禁用加密功能
+	// 线程安全:
+	//   使用原子操作保证并发安全
+	SetCrypto(c types.Crypto)
+
+	// SetDB 设置数据库实例（延迟注入）
+	// 用于数据库操作
+	// 参数:
+	//   db: 数据库实例，为nil时禁用数据库功能
+	// 线程安全:
+	//   使用原子操作保证并发安全
+	SetDB(db database.Database)
+
+	// SetTxManager 设置事务管理器（延迟注入）
+	// 用于事务管理
+	// 参数:
+	//   txMgr: 事务管理器实例，为nil时禁用事务管理功能
+	// 线程安全:
+	//   使用原子操作保证并发安全
+	SetTxManager(txMgr dbtx.Manager)
 }

@@ -23,7 +23,12 @@ func (app *App) runModeServer() (*App, error) {
 		app.Logger.Debug("executor injected into logger")
 	}
 
-	// 阶段2.5：初始化JWT认证
+	// 阶段2.5：初始化Crypto密码加密器
+	if err := app.initCrypto(); err != nil {
+		return nil, err
+	}
+
+	// 阶段2.6：初始化JWT认证
 	if err := initJWT(app); err != nil {
 		return nil, err
 	}

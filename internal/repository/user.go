@@ -26,6 +26,30 @@ type UserRepository interface {
 	// 返回 nil 表示用户不存在
 	// 邮箱用于登录和找回密码场景
 	FindByEmail(ctx context.Context, email string) (*models.User, error)
+
+	// CreateWithTx 在事务中创建用户
+	// 参数:
+	//   ctx: 上下文
+	//   tx: GORM 事务对象
+	//   user: 要创建的用户
+	// 返回:
+	//   error: 创建失败的错误
+	// 使用场景:
+	//   - 注册时需要同时创建用户和分配角色
+	//   - 需要保证数据一致性的操作
+	CreateWithTx(ctx context.Context, tx *gorm.DB, user *models.User) error
+
+	// UpdateWithTx 在事务中更新用户
+	// 参数:
+	//   ctx: 上下文
+	//   tx: GORM 事务对象
+	//   user: 要更新的用户
+	// 返回:
+	//   error: 更新失败的错误
+	// 使用场景:
+	//   - 修改密码时需要同时更新其他相关数据
+	//   - 需要保证数据一致性的操作
+	UpdateWithTx(ctx context.Context, tx *gorm.DB, user *models.User) error
 }
 
 // userRepository 使用 GORM 实现 UserRepository 接口
@@ -265,4 +289,40 @@ func (r *userRepository) FindByEmail(ctx context.Context, email string) (*models
 		return nil, err
 	}
 	return &user, nil
+}
+
+// CreateWithTx 在事务中创建用户
+// 参数:
+//
+//	ctx: 上下文
+//	tx: GORM 事务对象
+//	user: 要创建的用户
+//
+// 返回:
+//
+//	error: 创建失败的错误
+//
+// 注意:
+//   - 使用传入的事务对象而不是 r.db
+//   - 调用方负责事务的开启、提交和回滚
+func (r *userRepository) CreateWithTx(ctx context.Context, tx *gorm.DB, user *models.User) error {
+	return tx.WithContext(ctx).Create(user).Error
+}
+
+// UpdateWithTx 在事务中更新用户
+// 参数:
+//
+//	ctx: 上下文
+//	tx: GORM 事务对象
+//	user: 要更新的用户
+//
+// 返回:
+//
+//	error: 更新失败的错误
+//
+// 注意:
+//   - 使用传入的事务对象而不是 r.db
+//   - 调用方负责事务的开启、提交和回滚
+func (r *userRepository) UpdateWithTx(ctx context.Context, tx *gorm.DB, user *models.User) error {
+	return tx.WithContext(ctx).Save(user).Error
 }
