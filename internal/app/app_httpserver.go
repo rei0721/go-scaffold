@@ -10,7 +10,7 @@ import (
 // initHTTPServer 初始化 HTTP 服务器
 // 使用 pkg/httpserver 封装，替代原来的直接创建 http.Server
 // 这个函数应该在 Router 初始化之后调用
-func initHTTPServer(app *App) error {
+func (app *App) initHTTPServer() error {
 	// 创建 HTTP 服务器配置
 	cfg := &httpserver.Config{
 		Host:         app.Config.Server.Host,

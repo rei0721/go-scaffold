@@ -14,6 +14,7 @@ import (
 	"github.com/rei0721/go-scaffold/pkg/httpserver"
 	"github.com/rei0721/go-scaffold/pkg/i18n"
 	"github.com/rei0721/go-scaffold/pkg/jwt"
+	"github.com/rei0721/go-scaffold/pkg/rbac"
 	"github.com/rei0721/go-scaffold/pkg/sqlgen"
 	"github.com/rei0721/go-scaffold/pkg/utils"
 
@@ -74,6 +75,10 @@ type App struct {
 	// 用于生成和验证访问令牌
 	JWT jwt.JWT
 
+	// RBAC 角色访问控制
+	// 管理用户权限和角色
+	RBAC rbac.RBAC
+
 	// Options 应用选项
 	Options Options
 }
@@ -113,19 +118,19 @@ func New(opts Options) (*App, error) {
 
 	// 初始化配置管理器并加载配置
 	// 配置是整个应用的基础,必须最先加载
-	if err := initConfig(app, opts); err != nil {
+	if err := app.initConfig(opts); err != nil {
 		// 配置加载失败,应用无法启动
 		return nil, fmt.Errorf("failed to load config: %w", err)
 	}
 
 	// 初始化日志记录器
 	// 日志系统应该尽早初始化,便于记录后续的初始化过程
-	if err := initLogger(app); err != nil {
+	if err := app.initLogger(); err != nil {
 		return nil, err
 	}
 
 	// 初始化 i18n
-	if err := initI18n(app); err != nil {
+	if err := app.initI18n(); err != nil {
 		return nil, err
 	}
 
@@ -222,6 +227,12 @@ func (a *App) Shutdown(ctx context.Context) error {
 		} else {
 			a.Logger.Info("HTTP server stopped")
 		}
+	}
+
+	// 关闭 RBAC
+	if a.RBAC != nil {
+		a.RBAC.Close()
+		a.Logger.Info("rbac stopped")
 	}
 
 	// 关闭执行器(等待运行中的任务)

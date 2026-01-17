@@ -7,12 +7,11 @@ import (
 	"strings"
 
 	"github.com/rei0721/go-scaffold/internal/models"
-	rbacmodels "github.com/rei0721/go-scaffold/pkg/rbac/models"
 	"github.com/rei0721/go-scaffold/pkg/sqlgen"
 )
 
 // initSqlGenerator 初始化 SQL 生成器
-func initSqlGenerator(app *App) error {
+func (app *App) initSqlGenerator() error {
 	app.Sqlgen = sqlgen.New(&sqlgen.Config{
 		Dialect: getDialectFromDriver(app.Config.Database.Driver),
 		Pretty:  true,
@@ -44,10 +43,6 @@ func runInitDB(app *App) error {
 	// 收集所有模型的建表语句
 	allModels := []interface{}{
 		&models.User{},
-		&rbacmodels.Role{},
-		&rbacmodels.Permission{},
-		&rbacmodels.UserRole{},
-		&rbacmodels.RolePermission{},
 	}
 
 	var sqlStatements []string

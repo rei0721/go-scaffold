@@ -5,15 +5,15 @@ import "github.com/rei0721/go-scaffold/internal/config"
 func (app *App) runModeServer() (*App, error) {
 	// server 模式：完整初始化流程
 	// 阶段1：核心基础设施
-	if err := initCache(app); err != nil {
+	if err := app.initCache(); err != nil {
 		return nil, err
 	}
-	if err := initDatabase(app); err != nil {
+	if err := app.initDatabase(); err != nil {
 		return nil, err
 	}
 
 	// 阶段2：初始化Executor
-	if err := initExecutor(app); err != nil {
+	if err := app.initExecutor(); err != nil {
 		return nil, err
 	}
 
@@ -30,10 +30,10 @@ func (app *App) runModeServer() (*App, error) {
 
 	// 阶段3：业务层和HTTP服务器
 	// 注意：initBusiness和initHTTPServer内部会自动注入executor
-	if err := initBusiness(app); err != nil {
+	if err := app.initBusiness(); err != nil {
 		return nil, err
 	}
-	if err := initHTTPServer(app); err != nil {
+	if err := app.initHTTPServer(); err != nil {
 		return nil, err
 	}
 

@@ -61,6 +61,9 @@ type Config struct {
 	// JWT JWT认证配置
 	// 管理token的生成和验证
 	JWT JWTConfig `mapstructure:"jwt"`
+
+	// RBAC RBAC配置
+	RBAC RBACConfig `mapstructure:"rbac"`
 }
 
 // Validator 定义可验证配置的接口

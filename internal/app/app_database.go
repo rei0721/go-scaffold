@@ -7,7 +7,7 @@ import (
 )
 
 // initDatabase 初始化数据库连接
-func initDatabase(app *App) error {
+func (app *App) initDatabase() error {
 	db, err := database.New(&database.Config{
 		Driver:       database.Driver(app.Config.Database.Driver),
 		Host:         app.Config.Database.Host,

@@ -192,4 +192,5 @@ const (
 	AppExecutorName = "executor"
 	AppJWTName      = "jwt"
 	AppInitDBName   = "initdb"
+	AppRBACName     = "rbac"
 )

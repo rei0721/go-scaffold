@@ -5,6 +5,7 @@ import (
 	"github.com/rei0721/go-scaffold/pkg/executor"
 	"github.com/rei0721/go-scaffold/pkg/jwt"
 	"github.com/rei0721/go-scaffold/pkg/logger"
+	"github.com/rei0721/go-scaffold/pkg/rbac"
 )
 
 // BaseService 是所有业务服务的泛型基类
@@ -36,6 +37,7 @@ type BaseService[T any] struct {
 	Cache    cache.Cache      // cache.Cache (可选，延迟注入)
 	Logger   logger.Logger    // logger.Logger (可选，延迟注入)
 	JWT      jwt.JWT          // jwt.JWT (可选，延迟注入，认证服务需要)
+	RBAC     rbac.RBAC        // rbac.RBAC (可选，延迟注入，权限服务需要)
 }
 
 // SetRepository 设置Repository依赖 (延迟注入)
@@ -105,6 +107,19 @@ func (s *BaseService[T]) SetJWT(j jwt.JWT) {
 	s.JWT = j
 }
 
+// SetRBAC 设置RBAC依赖 (延迟注入)
+//
+// 参数:
+//
+//	r: RBAC管理器实例
+//
+// 注意:
+//
+//	此方法是线程安全的，可以在运行时动态替换
+func (s *BaseService[T]) SetRBAC(r rbac.RBAC) {
+	s.RBAC = r
+}
+
 // getExecutor 获取Executor实例
 //
 // 返回:
@@ -165,6 +180,22 @@ func (s *BaseService[T]) getLogger() logger.Logger {
 func (s *BaseService[T]) getJWT() jwt.JWT {
 	if j := s.JWT; j != nil {
 		return j
+	}
+	return nil
+}
+
+// getRBAC 获取RBAC实例
+//
+// 返回:
+//
+//	rbac.RBAC: RBAC实例，如果未注入则返回nil
+//
+// 注意:
+//
+//	使用前必须检查返回值是否为nil
+func (s *BaseService[T]) getRBAC() rbac.RBAC {
+	if r := s.RBAC; r != nil {
+		return r
 	}
 	return nil
 }

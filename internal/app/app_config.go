@@ -6,7 +6,7 @@ import (
 	"github.com/rei0721/go-scaffold/internal/config"
 )
 
-func initConfig(app *App, opts Options) error {
+func (app *App) initConfig(opts Options) error {
 	// 1. 初始化配置管理器并加载配置
 	// 配置是整个应用的基础,必须最先加载
 	configManager := config.NewManager()

@@ -185,3 +185,28 @@ jwt:
   # 用于标识token的来源系统
   # 多系统环境下可以区分不同来源的token
   issuer: "go-scaffold"
+
+rbac:
+  # 是否启用 RBAC
+  # true: 启用, false: 禁用
+  enabled: true
+
+  # 模型文件路径
+  # 如果为空，将使用pkg/rbac目录下的内置model.conf
+  model_path: ""
+
+  # 是否启用缓存
+  # true: 启用, false: 禁用
+  enable_cache: true
+
+  # 缓存过期时间（秒）
+  # 0 表示永不过期
+  cache_ttl: 3600
+
+  # 是否自动保存策略
+  # true: 自动保存, false: 手动保存
+  auto_save: true
+
+  # 表前缀
+  # 用于区分不同数据库的表
+  table_prefix: "rbac_"

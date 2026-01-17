@@ -16,7 +16,7 @@ import (
 // 返回:
 //
 //	error: 初始化失败时的错误
-func initExecutor(app *App) error {
+func (app *App) initExecutor() error {
 	// 检查是否启用执行器
 	if !app.Config.Executor.Enabled {
 		app.Logger.Info("executor is disabled, skipping initialization")

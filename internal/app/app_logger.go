@@ -7,7 +7,7 @@ import (
 )
 
 // initLogger 初始化日志记录器
-func initLogger(app *App) error {
+func (app *App) initLogger() error {
 	log, err := logger.New(&logger.Config{
 		Level:         app.Config.Logger.Level,         // 从配置读取日志级别
 		Format:        app.Config.Logger.Format,        // 从配置读取默认日志格式

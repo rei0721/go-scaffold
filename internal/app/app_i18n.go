@@ -8,7 +8,7 @@ import (
 )
 
 // initI18n 初始化i18n
-func initI18n(app *App) error {
+func (app *App) initI18n() error {
 	// 初始化i18n
 	i18nCfg := &i18n.Config{
 		DefaultLanguage:    app.Config.I18n.Default,

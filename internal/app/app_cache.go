@@ -7,7 +7,7 @@ import (
 )
 
 // 初始化 Redis 缓存(可选)
-func initCache(app *App) error {
+func (app *App) initCache() error {
 	// 如果配置中启用了 Redis,则创建缓存实例
 	if app.Config.Redis.Enabled {
 		cacheCfg := &cache.Config{

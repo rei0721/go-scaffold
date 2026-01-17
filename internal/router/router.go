@@ -9,7 +9,6 @@ import (
 	"github.com/rei0721/go-scaffold/internal/middleware"
 	"github.com/rei0721/go-scaffold/pkg/jwt"
 	"github.com/rei0721/go-scaffold/pkg/logger"
-	rbacservice "github.com/rei0721/go-scaffold/pkg/rbac/service"
 	"github.com/rei0721/go-scaffold/types/result"
 )
 
@@ -38,15 +37,10 @@ type Router struct {
 	// 用于认证中间件验证token
 	// 如果为nil,则不启用认证保护
 	jwt jwt.JWT
-
-	// RBAC components
-	rbacHandler *handler.RBACHandler
-	rbacService rbacservice.RBACService
 }
 
 type Handles struct {
 	UserHandler *handler.UserHandler
-	RBACHandler *handler.RBACHandler
 }
 
 // New 创建一个新的 Router 实例
@@ -66,14 +60,11 @@ type Handles struct {
 // 使用场景:
 //
 //	在应用初始化时创建,然后调用 Setup() 配置路由
-func New(userHandler *handler.UserHandler, rbacHandler *handler.RBACHandler, log logger.Logger, jwtManager jwt.JWT, rbacService rbacservice.RBACService) *Router {
-
+func New(userHandler *handler.UserHandler, log logger.Logger, jwtManager jwt.JWT) *Router {
 	return &Router{
 		userHandler: userHandler,
-		rbacHandler: rbacHandler,
 		logger:      log,
 		jwt:         jwtManager,
-		rbacService: rbacService,
 	}
 }
 
@@ -206,36 +197,11 @@ func (r *Router) registerRoutes() {
 		// orders := v1.Group("/orders") { ... }
 
 		// RBAC 管理路由 (需要认证和权限)
-		if r.rbacHandler != nil && r.rbacService != nil && r.jwt != nil {
+		if r.jwt != nil {
 			// 角色管理 - 需要 manage Roles 权限
 			roles := v1.Group("/roles")
 			roles.Use(middleware.AuthMiddleware(r.jwt))
 
-			// 角色列表需要 roles:read
-			roles.GET("", middleware.RequirePermission(r.rbacService, "roles", "read"), r.rbacHandler.ListRoles)
-			roles.GET("/:id", middleware.RequirePermission(r.rbacService, "roles", "read"), r.rbacHandler.GetRole)
-
-			// 修改类操作需要 roles:write
-			roles.POST("", middleware.RequirePermission(r.rbacService, "roles", "write"), r.rbacHandler.CreateRole)
-			roles.PUT("/:id", middleware.RequirePermission(r.rbacService, "roles", "write"), r.rbacHandler.UpdateRole)
-			roles.DELETE("/:id", middleware.RequirePermission(r.rbacService, "roles", "write"), r.rbacHandler.DeleteRole)
-
-			// 权限管理
-			permissions := v1.Group("/permissions")
-			permissions.Use(middleware.AuthMiddleware(r.jwt))
-			permissions.GET("", middleware.RequirePermission(r.rbacService, "permissions", "read"), r.rbacHandler.ListPermissions)
-			permissions.POST("", middleware.RequirePermission(r.rbacService, "permissions", "write"), r.rbacHandler.CreatePermission)
-
-			// 补充用户角色管理路由到 users 组
-			// users 变量在上面定义，这里直接复用
-			if r.rbacHandler != nil && r.rbacService != nil {
-				// 获取用户角色 - 需要 users:read
-				users.GET("/:id/roles", middleware.RequirePermission(r.rbacService, "users", "read"), r.rbacHandler.GetUserRoles)
-
-				// 分配和撤销角色 - 需要 roles:assign
-				users.POST("/:id/roles", middleware.RequirePermission(r.rbacService, "roles", "assign"), r.rbacHandler.AssignRoleToUser)
-				users.DELETE("/:id/roles/:roleID", middleware.RequirePermission(r.rbacService, "roles", "assign"), r.rbacHandler.RevokeRoleFromUser)
-			}
 		}
 
 	}
