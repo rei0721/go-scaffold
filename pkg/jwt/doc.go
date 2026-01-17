@@ -23,7 +23,7 @@ JWT是一种开放标准(RFC 7519),用于在各方之间安全地传输信息。
 基本用法:
 
 	import (
-		"github.com/rei0721/rei0721/pkg/jwt"
+		"github.com/rei0721/go-scaffold/pkg/jwt"
 	)
 
 	// 1. 创建JWT管理器
@@ -54,7 +54,7 @@ JWT是一种开放标准(RFC 7519),用于在各方之间安全地传输信息。
 
 	import (
 		"github.com/gin-gonic/gin"
-		"github.com/rei0721/rei0721/pkg/jwt"
+		"github.com/rei0721/go-scaffold/pkg/jwt"
 	)
 
 	func AuthMiddleware(jwtManager jwt.JWT) gin.HandlerFunc {

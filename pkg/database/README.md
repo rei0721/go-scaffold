@@ -22,7 +22,7 @@ import (
     "log"
     "time"
 
-    "github.com/rei0721/rei0721/pkg/database"
+    "github.com/rei0721/go-scaffold/pkg/database"
 )
 
 func main() {
@@ -367,7 +367,7 @@ import (
     "time"
 
     "github.com/gin-gonic/gin"
-    "github.com/rei0721/rei0721/pkg/database"
+    "github.com/rei0721/go-scaffold/pkg/database"
 )
 
 func main() {

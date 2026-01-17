@@ -4,7 +4,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/rei0721/rei0721/types/errors"
+	"github.com/rei0721/go-scaffold/types/errors"
 )
 
 // Unauthorized 返回401未授权错误响应

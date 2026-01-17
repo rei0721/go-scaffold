@@ -3,7 +3,7 @@ package app
 import (
 	"time"
 
-	"github.com/rei0721/rei0721/pkg/cache"
+	"github.com/rei0721/go-scaffold/pkg/cache"
 )
 
 // 初始化 Redis 缓存(可选)

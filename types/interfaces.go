@@ -1,8 +1,8 @@
 package types
 
 import (
-	"github.com/rei0721/rei0721/pkg/cache"
-	"github.com/rei0721/rei0721/pkg/executor"
+	"github.com/rei0721/go-scaffold/pkg/cache"
+	"github.com/rei0721/go-scaffold/pkg/executor"
 )
 
 // ExecutorInjectable 定义可注入executor的组件接口

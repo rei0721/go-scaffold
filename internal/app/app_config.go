@@ -3,7 +3,7 @@ package app
 import (
 	"fmt"
 
-	"github.com/rei0721/rei0721/internal/config"
+	"github.com/rei0721/go-scaffold/internal/config"
 )
 
 func initConfig(app *App, opts Options) error {

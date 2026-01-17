@@ -3,8 +3,8 @@ package app
 import (
 	"time"
 
-	"github.com/rei0721/rei0721/internal/config"
-	"github.com/rei0721/rei0721/pkg/executor"
+	"github.com/rei0721/go-scaffold/internal/config"
+	"github.com/rei0721/go-scaffold/pkg/executor"
 )
 
 // isRedisConfigChanged 检查 Redis 配置是否发生变化

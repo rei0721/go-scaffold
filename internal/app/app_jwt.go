@@ -3,7 +3,7 @@ package app
 import (
 	"fmt"
 
-	"github.com/rei0721/rei0721/pkg/jwt"
+	"github.com/rei0721/go-scaffold/pkg/jwt"
 )
 
 // initJWT 初始化 JWT 认证管理器

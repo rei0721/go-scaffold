@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/rei0721/rei0721/pkg/httpserver"
+	"github.com/rei0721/go-scaffold/pkg/httpserver"
 )
 
 // initHTTPServer 初始化 HTTP 服务器

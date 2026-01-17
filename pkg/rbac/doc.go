@@ -42,9 +42,9 @@ RBAC（Role-Based Access Control）包含以下核心实体：
 基本用法：
 
 	import (
-		"github.com/rei0721/rei0721/pkg/rbac/models"
-		"github.com/rei0721/rei0721/pkg/rbac/repository"
-		"github.com/rei0721/rei0721/pkg/rbac/service"
+		"github.com/rei0721/go-scaffold/pkg/rbac/models"
+		"github.com/rei0721/go-scaffold/pkg/rbac/repository"
+		"github.com/rei0721/go-scaffold/pkg/rbac/service"
 	)
 
 	// 1. 创建 Repository（传入 GORM DB 实例）
@@ -151,8 +151,8 @@ HTTP 中间件集成（示例，实际实现在调用方的 middleware 包中）
 - gorm.io/gorm: ORM 框架
 
 可选依赖（通过接口注入）：
-- github.com/rei0721/rei0721/pkg/cache: 缓存抽象
-- github.com/rei0721/rei0721/pkg/executor: 协程池管理
+- github.com/rei0721/go-scaffold/pkg/cache: 缓存抽象
+- github.com/rei0721/go-scaffold/pkg/executor: 协程池管理
 
 # 与其他包的区别
 

@@ -5,12 +5,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/rei0721/rei0721/internal/handler"
-	"github.com/rei0721/rei0721/internal/middleware"
-	"github.com/rei0721/rei0721/pkg/jwt"
-	"github.com/rei0721/rei0721/pkg/logger"
-	rbacservice "github.com/rei0721/rei0721/pkg/rbac/service"
-	"github.com/rei0721/rei0721/types/result"
+	"github.com/rei0721/go-scaffold/internal/handler"
+	"github.com/rei0721/go-scaffold/internal/middleware"
+	"github.com/rei0721/go-scaffold/pkg/jwt"
+	"github.com/rei0721/go-scaffold/pkg/logger"
+	rbacservice "github.com/rei0721/go-scaffold/pkg/rbac/service"
+	"github.com/rei0721/go-scaffold/types/result"
 )
 
 // Router 管理 HTTP 路由配置和注册

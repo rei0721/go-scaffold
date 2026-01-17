@@ -4,7 +4,7 @@ import (
 	"context"
 	"errors"
 
-	"github.com/rei0721/rei0721/internal/models"
+	"github.com/rei0721/go-scaffold/internal/models"
 
 	"gorm.io/gorm"
 )

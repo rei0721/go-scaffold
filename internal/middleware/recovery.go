@@ -5,9 +5,9 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/rei0721/rei0721/pkg/logger"
-	"github.com/rei0721/rei0721/types/errors"
-	"github.com/rei0721/rei0721/types/result"
+	"github.com/rei0721/go-scaffold/pkg/logger"
+	"github.com/rei0721/go-scaffold/types/errors"
+	"github.com/rei0721/go-scaffold/types/result"
 )
 
 // Recovery 返回一个从 panic 中恢复的中间件

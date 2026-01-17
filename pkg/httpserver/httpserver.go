@@ -7,8 +7,8 @@ import (
 	"sync"
 	"sync/atomic"
 
-	"github.com/rei0721/rei0721/pkg/logger"
-	"github.com/rei0721/rei0721/pkg/utils"
+	"github.com/rei0721/go-scaffold/pkg/logger"
+	"github.com/rei0721/go-scaffold/pkg/utils"
 )
 
 // httpServer HTTP 服务器实现

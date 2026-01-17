@@ -9,16 +9,16 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/rei0721/rei0721/pkg/cache"
-	"github.com/rei0721/rei0721/pkg/executor"
-	"github.com/rei0721/rei0721/pkg/httpserver"
-	"github.com/rei0721/rei0721/pkg/i18n"
-	"github.com/rei0721/rei0721/pkg/jwt"
-	"github.com/rei0721/rei0721/pkg/utils"
+	"github.com/rei0721/go-scaffold/pkg/cache"
+	"github.com/rei0721/go-scaffold/pkg/executor"
+	"github.com/rei0721/go-scaffold/pkg/httpserver"
+	"github.com/rei0721/go-scaffold/pkg/i18n"
+	"github.com/rei0721/go-scaffold/pkg/jwt"
+	"github.com/rei0721/go-scaffold/pkg/utils"
 
-	"github.com/rei0721/rei0721/internal/config"
-	"github.com/rei0721/rei0721/pkg/database"
-	"github.com/rei0721/rei0721/pkg/logger"
+	"github.com/rei0721/go-scaffold/internal/config"
+	"github.com/rei0721/go-scaffold/pkg/database"
+	"github.com/rei0721/go-scaffold/pkg/logger"
 )
 
 // App 是主应用程序容器,持有所有组件并管理它们的生命周期

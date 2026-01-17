@@ -12,7 +12,7 @@
 ## 安装
 
 ```go
-import "github.com/rei0721/rei0721/pkg/sqlgen"
+import "github.com/rei0721/go-scaffold/pkg/sqlgen"
 ```
 
 ## 快速开始

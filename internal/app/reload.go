@@ -4,11 +4,11 @@ import (
 	"context"
 	"time"
 
-	"github.com/rei0721/rei0721/internal/config"
-	"github.com/rei0721/rei0721/pkg/cache"
-	"github.com/rei0721/rei0721/pkg/database"
-	"github.com/rei0721/rei0721/pkg/httpserver"
-	"github.com/rei0721/rei0721/pkg/logger"
+	"github.com/rei0721/go-scaffold/internal/config"
+	"github.com/rei0721/go-scaffold/pkg/cache"
+	"github.com/rei0721/go-scaffold/pkg/database"
+	"github.com/rei0721/go-scaffold/pkg/httpserver"
+	"github.com/rei0721/go-scaffold/pkg/logger"
 )
 
 // reload

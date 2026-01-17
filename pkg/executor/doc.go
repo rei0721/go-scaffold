@@ -47,7 +47,7 @@ executor 包为 rei0721 项目提供了统一的异步任务执行基础设施�
 
 	import (
 	    "log"
-	    "github.com/rei0721/rei0721/pkg/executor"
+	    "github.com/rei0721/go-scaffold/pkg/executor"
 	)
 
 	func main() {
@@ -169,7 +169,7 @@ executor 包为 rei0721 项目提供了统一的异步任务执行基础设施�
 //	// types/constants/executor.go
 //	package constants
 //
-//	import "github.com/rei0721/rei0721/pkg/executor"
+//	import "github.com/rei0721/go-scaffold/pkg/executor"
 //
 //	const (
 //	    PoolHTTP       executor.PoolName = "http"
@@ -181,7 +181,7 @@ executor 包为 rei0721 项目提供了统一的异步任务执行基础设施�
 //
 // 在业务代码中使用常量:
 //
-//	import "github.com/rei0721/rei0721/types/constants"
+//	import "github.com/rei0721/go-scaffold/types/constants"
 //
 //	// 在 Service 层
 //	func (s *UserService) SendWelcomeEmail(userID int64) error {

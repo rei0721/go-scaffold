@@ -5,7 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/rei0721/rei0721/pkg/logger"
+	"github.com/rei0721/go-scaffold/pkg/logger"
 )
 
 // Logger 返回一个记录请求信息的中间件

@@ -3,9 +3,9 @@ package main
 import (
 	"os"
 
-	"github.com/rei0721/rei0721/internal/app"
-	"github.com/rei0721/rei0721/pkg/cli"
-	"github.com/rei0721/rei0721/types/constants"
+	"github.com/rei0721/go-scaffold/internal/app"
+	"github.com/rei0721/go-scaffold/pkg/cli"
+	"github.com/rei0721/go-scaffold/types/constants"
 )
 
 // InitdbCommand 数据库初始化命令

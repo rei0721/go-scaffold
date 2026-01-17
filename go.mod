@@ -1,4 +1,4 @@
-module github.com/rei0721/rei0721
+module github.com/rei0721/go-scaffold
 
 go 1.24.6
 

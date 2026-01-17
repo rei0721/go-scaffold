@@ -4,8 +4,8 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/rei0721/rei0721/pkg/jwt"
-	"github.com/rei0721/rei0721/types/result"
+	"github.com/rei0721/go-scaffold/pkg/jwt"
+	"github.com/rei0721/go-scaffold/types/result"
 )
 
 // AuthMiddleware JWT认证中间件

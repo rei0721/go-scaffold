@@ -21,7 +21,7 @@
 package main
 
 import (
-    "github.com/rei0721/rei0721/pkg/logger"
+    "github.com/rei0721/go-scaffold/pkg/logger"
 )
 
 func main() {
@@ -185,16 +185,17 @@ cfg := &logger.Config{
 
 ### 日志方法
 
-| 方法                            | 级别  | 说明                       |
-| ------------------------------- | ----- | -------------------------- |
-| `Debug(msg, keysAndValues...)`  | DEBUG | 详细调试信息               |
-| `Info(msg, keysAndValues...)`   | INFO  | 重要事件                   |
-| `Warn(msg, keysAndValues...)`   | WARN  | 警告信息                   |
-| `Error(msg, keysAndValues...)`  | ERROR | 错误信息                   |
-| `Fatal(msg, keysAndValues...)`  | FATAL | 致命错误,会调用 os.Exit(1) |
-| `With(keysAndValues...) Logger` | -     | 返回带上下文的子 logger    |
-| `Sync() error`                  | -     | 刷新缓冲的日志             |
-| `Reload(cfg *Config) error`     | -     | 热更新配置                 |
+| 方法                                 | 级别  | 说明                         |
+| ------------------------------------ | ----- | ---------------------------- |
+| `Debug(msg, keysAndValues...)`       | DEBUG | 详细调试信息                 |
+| `Info(msg, keysAndValues...)`        | INFO  | 重要事件                     |
+| `Warn(msg, keysAndValues...)`        | WARN  | 警告信息                     |
+| `Error(msg, keysAndValues...)`       | ERROR | 错误信息                     |
+| `Fatal(msg, keysAndValues...)`       | FATAL | 致命错误,会调用 os.Exit(1)   |
+| `With(keysAndValues...) Logger`      | -     | 返回带上下文的子 logger      |
+| `Sync() error`                       | -     | 刷新缓冲的日志               |
+| `Reload(cfg *Config) error`          | -     | 热更新配置                   |
+| `SetExecutor(exec executor.Manager)` | -     | 设置协程池管理器（延迟注入） |
 
 ### 使用示例
 
@@ -237,6 +238,113 @@ if err := db.Connect(); err != nil {
     return err
 }
 ```
+
+## 协程池集成 (SetExecutor)
+
+Logger 支持协程池集成，用于异步执行某些日志操作（如 Sync 刷新），提高性能。
+
+### 接口说明
+
+```go
+SetExecutor(exec executor.Manager)
+```
+
+**参数**：
+
+- `exec` (executor.Manager) - 协程池管理器实例，为 nil 时禁用异步功能
+
+**用途**：
+
+- 异步执行日志刷新操作（Sync）
+- 避免阻塞主流程
+- 提高系统吞吐量
+
+**线程安全**：
+
+- 使用原子操作保证并发安全
+- 可以在运行时动态设置
+
+### 使用示例
+
+#### 基本使用
+
+```go
+import (
+    "github.com/rei0721/go-scaffold/pkg/logger"
+    "github.com/rei0721/go-scaffold/pkg/executor"
+)
+
+func main() {
+    // 1. 创建 logger
+    log, _ := logger.New(&logger.Config{
+        Level:  "info",
+        Format: "json",
+        Output: "stdout",
+    })
+
+    // 2. 创建 executor
+    executorMgr, _ := executor.NewManager([]executor.Config{
+        {Name: "logger", Size: 10, NonBlocking: true},
+    })
+
+    // 3. 注入 executor 到 logger
+    log.SetExecutor(executorMgr)
+
+    // 4. 现在 Sync() 等操作可以异步执行
+    defer log.Sync()
+
+    // 正常使用 logger
+    log.Info("application started")
+}
+```
+
+#### 应用初始化模式
+
+在应用初始化时统一设置：
+
+```go
+// internal/app/app.go
+func (app *App) Init() error {
+    // 创建所有组件
+    app.Logger = createLogger()
+    app.HTTPServer = createHTTPServer()
+    app.Cache = createCache()
+    app.Executor = createExecutor()
+
+    // 延迟注入 Executor（统一管理异步任务）
+    app.Logger.SetExecutor(app.Executor)
+    app.HTTPServer.SetExecutor(app.Executor)
+    // ... 其他需要异步的组件
+
+    return nil
+}
+```
+
+#### 动态设置
+
+```go
+// 运行时动态设置或移除 executor
+log.SetExecutor(executorMgr)  // 启用异步
+
+// 禁用异步（传 nil）
+log.SetExecutor(nil)
+```
+
+### 使用场景
+
+1. **高并发环境**：避免日志刷新阻塞业务逻辑
+2. **性能优化**：异步执行耗时的 I/O 操作
+3. **微服务**：统一管理所有组件的异步任务
+
+### 注意事项
+
+⚠️ **重要提示**：
+
+- SetExecutor 是**可选的**，不设置也能正常工作
+- 设置后，某些操作（如 Sync）会异步执行
+- 可以传 nil 禁用 executor 功能
+- 建议在应用初始化时统一设置
+- 确保在应用关闭前调用 `executor.Shutdown()` 等待任务完成
 
 ## 配置热更新 (Reload)
 

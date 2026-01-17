@@ -6,9 +6,9 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/rei0721/rei0721/internal/models"
-	rbacmodels "github.com/rei0721/rei0721/pkg/rbac/models"
-	"github.com/rei0721/rei0721/pkg/sqlgen"
+	"github.com/rei0721/go-scaffold/internal/models"
+	rbacmodels "github.com/rei0721/go-scaffold/pkg/rbac/models"
+	"github.com/rei0721/go-scaffold/pkg/sqlgen"
 )
 
 // runInitDB 执行数据库初始化

@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/rei0721/rei0721/pkg/cli"
+	"github.com/rei0721/go-scaffold/pkg/cli"
 )
 
 func main() {
@@ -17,7 +17,6 @@ func main() {
 
 	// 注册命令
 	app.AddCommand(&DevCommand{})
-	app.AddCommand(&SqlGenCommand{})
 	app.AddCommand(&InitdbCommand{})
 
 	// 执行

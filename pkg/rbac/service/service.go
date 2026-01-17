@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"sync/atomic"
 
-	"github.com/rei0721/rei0721/pkg/cache"
-	"github.com/rei0721/rei0721/pkg/executor"
-	"github.com/rei0721/rei0721/pkg/rbac"
-	"github.com/rei0721/rei0721/pkg/rbac/models"
-	"github.com/rei0721/rei0721/pkg/rbac/repository"
-	"github.com/rei0721/rei0721/types"
-	"github.com/rei0721/rei0721/types/constants"
+	"github.com/rei0721/go-scaffold/pkg/cache"
+	"github.com/rei0721/go-scaffold/pkg/executor"
+	"github.com/rei0721/go-scaffold/pkg/rbac"
+	"github.com/rei0721/go-scaffold/pkg/rbac/models"
+	"github.com/rei0721/go-scaffold/pkg/rbac/repository"
+	"github.com/rei0721/go-scaffold/types"
+	"github.com/rei0721/go-scaffold/types/constants"
 )
 
 // rbacServiceImpl RBAC Service 实现

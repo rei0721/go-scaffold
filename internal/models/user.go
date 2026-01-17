@@ -1,7 +1,7 @@
 package models
 
 import (
-	rbacmodels "github.com/rei0721/rei0721/pkg/rbac/models"
+	rbacmodels "github.com/rei0721/go-scaffold/pkg/rbac/models"
 )
 
 // User 表示系统中的用户实体

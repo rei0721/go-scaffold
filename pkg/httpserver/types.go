@@ -5,7 +5,7 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/rei0721/rei0721/pkg/executor"
+	"github.com/rei0721/go-scaffold/pkg/executor"
 )
 
 // HTTPServer HTTP 服务器接口

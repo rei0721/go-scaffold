@@ -1,6 +1,6 @@
 package constants
 
-import "github.com/rei0721/rei0721/pkg/executor"
+import "github.com/rei0721/go-scaffold/pkg/executor"
 
 // 协程池名称常量
 // 用于引用配置文件中定义的池

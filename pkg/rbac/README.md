@@ -17,15 +17,15 @@
 ### 1. 安装
 
 ```bash
-go get github.com/rei0721/rei0721/pkg/rbac
+go get github.com/rei0721/go-scaffold/pkg/rbac
 ```
 
 ### 2. 基本使用
 
 ```go
 import (
-    "github.com/rei0721/rei0721/pkg/rbac/repository"
-    "github.com/rei0721/rei0721/pkg/rbac/service"
+    "github.com/rei0721/go-scaffold/pkg/rbac/repository"
+    "github.com/rei0721/go-scaffold/pkg/rbac/service"
 )
 
 // 创建 Repository
@@ -78,7 +78,7 @@ if !hasPermission {
 ### 5. 在 HTTP 中间件中使用
 
 ```go
-import "github.com/rei0721/rei0721/internal/middleware"
+import "github.com/rei0721/go-scaffold/internal/middleware"
 
 // 权限中间件
 router.Use(middleware.RequirePermission(rbacService, "posts", "write"))
@@ -189,8 +189,8 @@ CREATE INDEX idx_role_permissions_permission_id ON role_permissions(permission_i
 
 ### 可选依赖（通过接口注入）
 
-- `github.com/rei0721/rei0721/pkg/cache` - 缓存抽象
-- `github.com/rei0721/rei0721/pkg/executor` - 协程池管理
+- `github.com/rei0721/go-scaffold/pkg/cache` - 缓存抽象
+- `github.com/rei0721/go-scaffold/pkg/executor` - 协程池管理
 
 ## 与 pkg/jwt 的配合
 

@@ -11,8 +11,8 @@ import (
 	"go.uber.org/zap/zapcore"
 	"gopkg.in/natefinch/lumberjack.v2"
 
-	"github.com/rei0721/rei0721/pkg/executor"
-	"github.com/rei0721/rei0721/types/constants"
+	"github.com/rei0721/go-scaffold/pkg/executor"
+	"github.com/rei0721/go-scaffold/types/constants"
 )
 
 // 编译时检查 zapLogger 是否实现了 Logger 接口

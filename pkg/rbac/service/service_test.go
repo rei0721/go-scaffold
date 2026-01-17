@@ -4,9 +4,9 @@ import (
 	"context"
 	"testing"
 
-	"github.com/rei0721/rei0721/pkg/rbac/models"
-	"github.com/rei0721/rei0721/pkg/rbac/service"
-	"github.com/rei0721/rei0721/types"
+	"github.com/rei0721/go-scaffold/pkg/rbac/models"
+	"github.com/rei0721/go-scaffold/pkg/rbac/service"
+	"github.com/rei0721/go-scaffold/types"
 )
 
 // mockRBACRepository 是用于测试的 mock Repository

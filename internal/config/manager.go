@@ -12,7 +12,7 @@ import (
 	"github.com/fsnotify/fsnotify"
 	"github.com/spf13/viper"
 
-	"github.com/rei0721/rei0721/pkg/logger"
+	"github.com/rei0721/go-scaffold/pkg/logger"
 )
 
 // HookHandler 配置变更时调用的回调函数

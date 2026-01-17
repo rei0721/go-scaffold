@@ -14,7 +14,7 @@
 ## 安装
 
 ```bash
-go get github.com/rei0721/rei0721/pkg/httpserver
+go get github.com/rei0721/go-scaffold/pkg/httpserver
 ```
 
 ## 快速开始
@@ -30,8 +30,8 @@ import (
     "time"
 
     "github.com/gin-gonic/gin"
-    "github.com/rei0721/rei0721/pkg/httpserver"
-    "github.com/rei0721/rei0721/pkg/logger"
+    "github.com/rei0721/go-scaffold/pkg/httpserver"
+    "github.com/rei0721/go-scaffold/pkg/logger"
 )
 
 func main() {
@@ -174,6 +174,174 @@ func initHTTPServer(app *App) error {
     return nil
 }
 ```
+
+## 协程池集成 (SetExecutor)
+
+HTTPServer 支持协程池集成，用于异步处理 HTTP 相关任务。
+
+### 接口说明
+
+```go
+SetExecutor(exec executor.Manager)
+```
+
+**参数**：
+
+- `exec` (executor.Manager) - 协程池管理器实例，为 nil 时禁用 executor 功能
+
+**用途**：
+
+- 异步处理 HTTP 相关任务
+- 在 HTTPServer 初始化后，Executor 就绪时调用
+- 提高系统并发处理能力
+
+**线程安全**：
+
+- 使用原子操作保证并发安全
+- 可以在运行时动态设置
+
+### 使用示例
+
+#### 基本使用
+
+```go
+import (
+    "github.com/rei0721/go-scaffold/pkg/httpserver"
+    "github.com/rei0721/go-scaffold/pkg/executor"
+    "github.com/gin-gonic/gin"
+)
+
+func main() {
+    // 1. 创建 HTTP Server
+    router := gin.Default()
+    config := &httpserver.Config{
+        Host: "localhost",
+        Port: 8080,
+    }
+    server, _ := httpserver.New(router, config, log)
+
+    // 2. 创建 Executor
+    executorMgr, _ := executor.NewManager([]executor.Config{
+        {Name: "http", Size: 100, NonBlocking: true},
+    })
+
+    // 3. 注入 Executor 到 HTTP Server
+    server.SetExecutor(executorMgr)
+
+    // 4. 启动服务器
+    server.Start(context.Background())
+}
+```
+
+#### 应用初始化模式
+
+在应用启动时统一配置：
+
+```go
+// internal/app/app.go
+func (app *App) Init() error {
+    // 创建所有组件
+    app.Logger = createLogger()
+    app.HTTPServer = createHTTPServer()
+    app.Executor = createExecutor()
+
+    // 延迟注入 Executor（统一管理异步任务）
+    app.Logger.SetExecutor(app.Executor)
+    app.HTTPServer.SetExecutor(app.Executor)
+
+    return nil
+}
+```
+
+#### 完整示例
+
+```go
+package main
+
+import (
+    "context"
+    "os"
+    "os/signal"
+    "syscall"
+    "time"
+
+    "github.com/gin-gonic/gin"
+    "github.com/rei0721/go-scaffold/pkg/executor"
+    "github.com/rei0721/go-scaffold/pkg/httpserver"
+    "github.com/rei0721/go-scaffold/pkg/logger"
+)
+
+func main() {
+    // 1. 创建 logger
+    log, _ := logger.New(&logger.Config{
+        Level:  "info",
+        Format: "console",
+        Output: "stdout",
+    })
+
+    // 2. 创建 executor
+    executorMgr, _ := executor.NewManager([]executor.Config{
+        {Name: "http", Size: 100, NonBlocking: true},
+        {Name: "logger", Size: 10, NonBlocking: true},
+    })
+    defer executorMgr.Shutdown()
+
+    // 3. 创建 HTTP server
+    router := gin.Default()
+    router.GET("/health", func(c *gin.Context) {
+        c.JSON(200, gin.H{"status": "ok"})
+    })
+
+    server, _ := httpserver.New(router, &httpserver.Config{
+        Host: "localhost",
+        Port: 8080,
+    }, log)
+
+    // 4. 注入 executor
+    log.SetExecutor(executorMgr)
+    server.SetExecutor(executorMgr)
+
+    // 5. 启动服务器
+    if err := server.Start(context.Background()); err != nil {
+        log.Fatal("failed to start server", "error", err)
+    }
+
+    log.Info("server started successfully")
+
+    // 6. 等待退出信号
+    quit := make(chan os.Signal, 1)
+    signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
+    <-quit
+
+    log.Info("shutting down server...")
+
+    // 7. 优雅关闭
+    ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+    defer cancel()
+
+    if err := server.Shutdown(ctx); err != nil {
+        log.Error("server shutdown error", "error", err)
+    }
+
+    log.Info("server stopped")
+}
+```
+
+### 使用场景
+
+1. **高并发 Web 服务**：利用协程池管理并发请求
+2. **异步任务处理**：在 HTTP 处理器中提交异步任务
+3. **资源限制**：通过协程池限制并发数，防止资源耗尽
+
+### 注意事项
+
+⚠️ **重要提示**：
+
+- SetExecutor 是**可选的**，不设置也能正常工作
+- 设置后可以在业务代码中使用 executor 处理异步任务
+- 可以传 nil 禁用 executor 功能
+- 建议在应用初始化时统一设置
+- 确保在应用关闭前调用 `executor.Shutdown()` 等待任务完成
 
 ## 故障排查
 

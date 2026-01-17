@@ -3,7 +3,7 @@ package middleware
 import (
 	"github.com/gin-gonic/gin"
 
-	"github.com/rei0721/rei0721/pkg/utils"
+	"github.com/rei0721/go-scaffold/pkg/utils"
 )
 
 // TraceIDKey 是存储追踪 ID 的上下文键

@@ -2,7 +2,7 @@ package middleware
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/rei0721/rei0721/pkg/i18n"
+	"github.com/rei0721/go-scaffold/pkg/i18n"
 )
 
 // I18n 中间件提取并存储用户的语言偏好

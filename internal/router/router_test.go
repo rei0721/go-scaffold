@@ -9,10 +9,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/rei0721/rei0721/internal/handler"
-	"github.com/rei0721/rei0721/internal/middleware"
-	"github.com/rei0721/rei0721/pkg/logger"
-	"github.com/rei0721/rei0721/types/result"
+	"github.com/rei0721/go-scaffold/internal/handler"
+	"github.com/rei0721/go-scaffold/internal/middleware"
+	"github.com/rei0721/go-scaffold/pkg/logger"
+	"github.com/rei0721/go-scaffold/types/result"
 )
 
 func TestHealthEndpoint(t *testing.T) {

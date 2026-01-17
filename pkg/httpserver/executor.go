@@ -1,6 +1,6 @@
 package httpserver
 
-import "github.com/rei0721/rei0721/pkg/executor"
+import "github.com/rei0721/go-scaffold/pkg/executor"
 
 // SetExecutor 设置协程池管理器
 // 实现延迟注入模式，支持在服务器初始化后设置

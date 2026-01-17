@@ -3,7 +3,7 @@ package constants
 import (
 	"testing"
 
-	"github.com/rei0721/rei0721/pkg/executor"
+	"github.com/rei0721/go-scaffold/pkg/executor"
 )
 
 // TestPoolNameConstants 验证池名常量的类型和值

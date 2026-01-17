@@ -3,7 +3,7 @@ package app
 import (
 	"fmt"
 
-	"github.com/rei0721/rei0721/pkg/database"
+	"github.com/rei0721/go-scaffold/pkg/database"
 )
 
 // initDatabase 初始化数据库连接

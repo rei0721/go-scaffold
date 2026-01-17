@@ -2,13 +2,13 @@ package app
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/rei0721/rei0721/internal/handler"
-	"github.com/rei0721/rei0721/internal/middleware"
-	"github.com/rei0721/rei0721/internal/repository"
-	"github.com/rei0721/rei0721/internal/router"
-	"github.com/rei0721/rei0721/internal/service"
-	rbacrepo "github.com/rei0721/rei0721/pkg/rbac/repository"
-	rbacservice "github.com/rei0721/rei0721/pkg/rbac/service"
+	"github.com/rei0721/go-scaffold/internal/handler"
+	"github.com/rei0721/go-scaffold/internal/middleware"
+	"github.com/rei0721/go-scaffold/internal/repository"
+	"github.com/rei0721/go-scaffold/internal/router"
+	"github.com/rei0721/go-scaffold/internal/service"
+	rbacrepo "github.com/rei0721/go-scaffold/pkg/rbac/repository"
+	rbacservice "github.com/rei0721/go-scaffold/pkg/rbac/service"
 )
 
 func initBusiness(app *App) error {

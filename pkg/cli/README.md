@@ -16,7 +16,7 @@
 ### 安装
 
 ```bash
-import "github.com/rei0721/rei0721/pkg/cli"
+import "github.com/rei0721/go-scaffold/pkg/cli"
 ```
 
 ### 基本使用
@@ -27,7 +27,7 @@ package main
 import (
     "fmt"
     "os"
-    "github.com/rei0721/rei0721/pkg/cli"
+    "github.com/rei0721/go-scaffold/pkg/cli"
 )
 
 func main() {

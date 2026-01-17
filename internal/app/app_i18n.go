@@ -3,7 +3,7 @@ package app
 import (
 	"fmt"
 
-	"github.com/rei0721/rei0721/pkg/i18n"
+	"github.com/rei0721/go-scaffold/pkg/i18n"
 )
 
 // initI18n 初始化i18n

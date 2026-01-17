@@ -6,7 +6,7 @@
 // - 便于切换日志实现,无需修改业务代码
 package logger
 
-import "github.com/rei0721/rei0721/pkg/executor"
+import "github.com/rei0721/go-scaffold/pkg/executor"
 
 // Logger 定义统一的日志接口
 // 这是一个抽象接口,具体实现在 zap.go 中

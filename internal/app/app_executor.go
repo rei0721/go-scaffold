@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/rei0721/rei0721/pkg/executor"
+	"github.com/rei0721/go-scaffold/pkg/executor"
 )
 
 // initExecutor 初始化执行器管理器

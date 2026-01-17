@@ -3,7 +3,7 @@ package app
 import (
 	"fmt"
 
-	"github.com/rei0721/rei0721/pkg/logger"
+	"github.com/rei0721/go-scaffold/pkg/logger"
 )
 
 // initLogger 初始化日志记录器

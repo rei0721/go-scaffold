@@ -5,10 +5,10 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/rei0721/rei0721/pkg/rbac/models"
-	"github.com/rei0721/rei0721/pkg/rbac/repository"
-	"github.com/rei0721/rei0721/pkg/rbac/service"
-	"github.com/rei0721/rei0721/types"
+	"github.com/rei0721/go-scaffold/pkg/rbac/models"
+	"github.com/rei0721/go-scaffold/pkg/rbac/repository"
+	"github.com/rei0721/go-scaffold/pkg/rbac/service"
+	"github.com/rei0721/go-scaffold/types"
 	"gorm.io/driver/sqlite"
 	"gorm.io/gorm"
 )

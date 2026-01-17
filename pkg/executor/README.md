@@ -20,7 +20,7 @@ package main
 
 import (
     "time"
-    "github.com/rei0721/rei0721/pkg/executor"
+    "github.com/rei0721/go-scaffold/pkg/executor"
 )
 
 func main() {

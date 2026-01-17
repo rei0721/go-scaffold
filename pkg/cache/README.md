@@ -33,7 +33,7 @@ import (
     "log"
     "time"
 
-    "github.com/rei0721/rei0721/pkg/cache"
+    "github.com/rei0721/go-scaffold/pkg/cache"
 )
 
 func main() {

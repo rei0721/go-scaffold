@@ -9,12 +9,12 @@ package service
 import (
 	"context"
 
-	"github.com/rei0721/rei0721/pkg/cache"
-	"github.com/rei0721/rei0721/pkg/executor"
-	"github.com/rei0721/rei0721/pkg/jwt"
-	"github.com/rei0721/rei0721/pkg/logger"
-	"github.com/rei0721/rei0721/types"
-	"github.com/rei0721/rei0721/types/result"
+	"github.com/rei0721/go-scaffold/pkg/cache"
+	"github.com/rei0721/go-scaffold/pkg/executor"
+	"github.com/rei0721/go-scaffold/pkg/jwt"
+	"github.com/rei0721/go-scaffold/pkg/logger"
+	"github.com/rei0721/go-scaffold/types"
+	"github.com/rei0721/go-scaffold/types/result"
 )
 
 // UserService 定义用户相关业务操作的接口

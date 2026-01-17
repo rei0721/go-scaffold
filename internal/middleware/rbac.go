@@ -2,8 +2,8 @@ package middleware
 
 import (
 	"github.com/gin-gonic/gin"
-	rbacservice "github.com/rei0721/rei0721/pkg/rbac/service"
-	"github.com/rei0721/rei0721/types/result"
+	rbacservice "github.com/rei0721/go-scaffold/pkg/rbac/service"
+	"github.com/rei0721/go-scaffold/types/result"
 )
 
 // RequirePermission 权限校验中间件

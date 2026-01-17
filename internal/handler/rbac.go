@@ -5,10 +5,10 @@ import (
 	"strconv"
 
 	"github.com/gin-gonic/gin"
-	"github.com/rei0721/rei0721/pkg/logger"
-	rbacservice "github.com/rei0721/rei0721/pkg/rbac/service"
-	"github.com/rei0721/rei0721/types"
-	"github.com/rei0721/rei0721/types/result"
+	"github.com/rei0721/go-scaffold/pkg/logger"
+	rbacservice "github.com/rei0721/go-scaffold/pkg/rbac/service"
+	"github.com/rei0721/go-scaffold/types"
+	"github.com/rei0721/go-scaffold/types/result"
 )
 
 type RBACHandler struct {

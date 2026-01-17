@@ -13,10 +13,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 
-	"github.com/rei0721/rei0721/internal/service"
-	"github.com/rei0721/rei0721/types"
-	bizErr "github.com/rei0721/rei0721/types/errors"
-	"github.com/rei0721/rei0721/types/result"
+	"github.com/rei0721/go-scaffold/internal/service"
+	"github.com/rei0721/go-scaffold/types"
+	bizErr "github.com/rei0721/go-scaffold/types/errors"
+	"github.com/rei0721/go-scaffold/types/result"
 )
 
 // TraceIDKey 上下文中存储 TraceID 的键
