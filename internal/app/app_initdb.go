@@ -11,12 +11,21 @@ import (
 	"github.com/rei0721/go-scaffold/pkg/sqlgen"
 )
 
+// initSqlGenerator 初始化 SQL 生成器
+func initSqlGenerator(app *App) error {
+	app.Sqlgen = sqlgen.New(&sqlgen.Config{
+		Dialect: getDialectFromDriver(app.Config.Database.Driver),
+		Pretty:  true,
+	})
+	return nil
+}
+
 // runInitDB 执行数据库初始化
 func runInitDB(app *App) error {
 	app.Logger.Info("starting database initialization...")
 
 	// 1. 检查锁文件
-	lockPath := filepath.Join(InitDBScriptDir, InitDBLockFile)
+	lockPath := filepath.Join(app.Config.InitDB.ScriptDir, app.Config.InitDB.LockFile)
 	if _, err := os.Stat(lockPath); err == nil {
 		app.Logger.Warn("database already initialized (lock file exists)",
 			"lock_file", lockPath)
@@ -25,15 +34,12 @@ func runInitDB(app *App) error {
 	}
 
 	// 2. 确保脚本目录存在
-	if err := os.MkdirAll(InitDBScriptDir, 0755); err != nil {
+	if err := os.MkdirAll(app.Config.InitDB.ScriptDir, 0755); err != nil {
 		return fmt.Errorf("failed to create script directory: %w", err)
 	}
 
 	// 3. 使用 sqlgen 生成 SQL 脚本
-	gen := sqlgen.New(&sqlgen.Config{
-		Dialect: getDialectFromDriver(app.Config.Database.Driver),
-		Pretty:  true,
-	})
+	gen := app.Sqlgen
 
 	// 收集所有模型的建表语句
 	allModels := []interface{}{
@@ -54,8 +60,8 @@ func runInitDB(app *App) error {
 	}
 
 	// 4. 写入 SQL 文件
-	scriptPath := filepath.Join(InitDBScriptDir,
-		fmt.Sprintf(InitDBScriptFileName, app.Config.Database.Driver))
+	scriptPath := filepath.Join(app.Config.InitDB.ScriptDir,
+		fmt.Sprintf(ConstantsInitDBScriptFileTemplate, app.Config.InitDB.ScriptFilePrefix, app.Config.Database.Driver))
 
 	fullSQL := strings.Join(sqlStatements, "\n\n")
 	if err := os.WriteFile(scriptPath, []byte(fullSQL), 0644); err != nil {

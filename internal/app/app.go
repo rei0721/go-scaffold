@@ -14,6 +14,7 @@ import (
 	"github.com/rei0721/go-scaffold/pkg/httpserver"
 	"github.com/rei0721/go-scaffold/pkg/i18n"
 	"github.com/rei0721/go-scaffold/pkg/jwt"
+	"github.com/rei0721/go-scaffold/pkg/sqlgen"
 	"github.com/rei0721/go-scaffold/pkg/utils"
 
 	"github.com/rei0721/go-scaffold/internal/config"
@@ -39,8 +40,13 @@ type App struct {
 	// 使用接口而非具体实现,便于切换数据库
 	DB database.Database
 
+	// Sqlgen SQL 生成器
+	// 用于生成数据库建表语句
+	Sqlgen *sqlgen.Generator
+
 	// I18n 国际化
-	I18n i18n.I18n
+	I18n      i18n.I18n
+	I18nUtils *utils.I18nUtils
 
 	// Cache Redis 缓存
 	// 用于提高性能,减轻数据库压力
@@ -67,6 +73,9 @@ type App struct {
 	// JWT JWT认证管理器
 	// 用于生成和验证访问令牌
 	JWT jwt.JWT
+
+	// Options 应用选项
+	Options Options
 }
 
 // Options 创建新 App 时的配置选项
@@ -82,15 +91,7 @@ type Options struct {
 }
 
 // New 创建一个新的 App 实例
-// 按照正确的依赖顺序初始化所有组件:
-// config → logger → i18n → database → scheduler → repository → service → handler → router
-// 为什么这个顺序:
-// - config 最先:其他组件需要配置信息
-// - logger 第二:后续初始化过程需要记录日志
-// - i18n 第三:响应HTTP需用到
-// - database 第四:repository 依赖数据库
-// - scheduler 第五:service 需要调度器执行异步任务
-// - repository、service、handler、router 依次初始化,形成完整的请求链路
+//
 // 参数:
 //
 //	opts: 应用选项,包含配置文件路径等
@@ -107,6 +108,9 @@ func New(opts Options) (*App, error) {
 		opts.Mode = ModeServer
 	}
 
+	// 备份选项
+	app.Options = opts
+
 	// 初始化配置管理器并加载配置
 	// 配置是整个应用的基础,必须最先加载
 	if err := initConfig(app, opts); err != nil {
@@ -120,10 +124,14 @@ func New(opts Options) (*App, error) {
 		return nil, err
 	}
 
+	// 初始化 i18n
+	if err := initI18n(app); err != nil {
+		return nil, err
+	}
+
 	// debug
-	app.Logger.Debug("app initialized drive id", "drive_id", utils.GenerateDeviceID("rei0721"))
-	app.Logger.Debug("app initialized config path", "config_path", opts.ConfigPath)
-	app.Logger.Debug("app initialized mode", "mode", opts.Mode)
+	app.Logger.Debug(app.UI18n("internal.app.logger_debug_init_config_path"), "config_path", opts.ConfigPath)
+	app.Logger.Debug(app.UI18n("internal.app.logger_debug_init_mode"), "mode", opts.Mode)
 
 	// 将日志器注册到配置管理器
 	// 这样配置变更时可以记录日志
@@ -134,103 +142,8 @@ func New(opts Options) (*App, error) {
 	// Config 调试配置
 	debugConfig(app, opts)
 
-	// 根据启动模式执行不同的初始化流程
-	if opts.Mode == ModeInitDB {
-		// initdb 模式：仅初始化到数据库，然后执行初始化
-		initApps := []func(app *App) error{
-			initI18n,     // 初始化 i18n（用于日志消息）
-			initDatabase, // 初始化数据库连接
-		}
-
-		for _, initApp := range initApps {
-			if err := initApp(app); err != nil {
-				return nil, err
-			}
-		}
-
-		// 初始化 Executor
-		if err := initExecutor(app); err != nil {
-			return nil, err
-		}
-
-		// ⭐ Executor初始化完成后，注入到Logger
-		if app.Executor != nil && app.Logger != nil {
-			app.Logger.SetExecutor(app.Executor)
-			app.Logger.Debug("executor injected into logger")
-		}
-
-		// 初始化业务逻辑(包括 Router)
-		if err := initBusiness(app); err != nil {
-			return nil, err
-		}
-
-		// 执行数据库初始化
-		if err := runInitDB(app); err != nil {
-			return nil, err
-		}
-
-		app.Logger.Info("initdb mode completed")
-		return app, nil
-	}
-
-	// server 模式：完整初始化流程
-	// 阶段1：核心基础设施
-	if err := initI18n(app); err != nil {
-		return nil, err
-	}
-	if err := initCache(app); err != nil {
-		return nil, err
-	}
-	if err := initDatabase(app); err != nil {
-		return nil, err
-	}
-
-	// 阶段2：初始化Executor
-	if err := initExecutor(app); err != nil {
-		return nil, err
-	}
-
-	// ⭐ Executor初始化完成后，立即注入到Logger
-	if app.Executor != nil && app.Logger != nil {
-		app.Logger.SetExecutor(app.Executor)
-		app.Logger.Debug("executor injected into logger")
-	}
-
-	// 阶段2.5：初始化JWT认证
-	if err := initJWT(app); err != nil {
-		return nil, err
-	}
-
-	// 阶段3：业务层和HTTP服务器
-	// 注意：initBusiness和initHTTPServer内部会自动注入executor
-	if err := initBusiness(app); err != nil {
-		return nil, err
-	}
-	if err := initHTTPServer(app); err != nil {
-		return nil, err
-	}
-
-	// Start config file watching for hot-reload
-	if err := app.ConfigManager.Watch(); err != nil {
-		app.Logger.Warn("failed to start config watcher", "error", err)
-	}
-	app.Logger.Debug("config watcher started")
-
-	// Register config change hook
-	// 当配置文件变化时自动调用
-	app.ConfigManager.RegisterHook(func(old, new *config.Config) {
-		app.Logger.Info("configuration file changed, processing updates...")
-
-		// 重载 app
-		app.reload(old, new)
-
-		// 更新应用配置引用
-		app.Config = new
-		app.Logger.Info("configuration update completed")
-	})
-
-	app.Logger.Info("application initialized successfully")
-	return app, nil
+	// 初始化模式
+	return app.initMode()
 }
 
 // Start 启动所有守护进程

@@ -44,6 +44,11 @@ type Router struct {
 	rbacService rbacservice.RBACService
 }
 
+type Handles struct {
+	UserHandler *handler.UserHandler
+	RBACHandler *handler.RBACHandler
+}
+
 // New 创建一个新的 Router 实例
 // 这是工厂函数,遵循依赖注入模式
 // 参数:
@@ -62,6 +67,7 @@ type Router struct {
 //
 //	在应用初始化时创建,然后调用 Setup() 配置路由
 func New(userHandler *handler.UserHandler, rbacHandler *handler.RBACHandler, log logger.Logger, jwtManager jwt.JWT, rbacService rbacservice.RBACService) *Router {
+
 	return &Router{
 		userHandler: userHandler,
 		rbacHandler: rbacHandler,

@@ -1,28 +1,7 @@
-# English language pack
-success: Operation successful
+# `.` 之前是架构目录，之后使用 `_` 连接是表达要做的事情
 
-# Parameter errors 1000-1999
-err_invalid_params: Invalid parameters
-err_invalid_username: Invalid username format
-err_invalid_email: Invalid email format
-err_invalid_password: Invalid password format
-
-# Business errors 2000-2999
-err_business_logic: Business logic error
-err_duplicate_username: Username already exists
-err_duplicate_email: Email already exists
-
-# Auth errors 3000-3999
-err_unauthorized: Unauthorized
-err_invalid_token: Invalid token
-err_token_expired: Token expired
-err_permission_denied: Permission denied
-
-# Resource errors 4000-4999
-err_resource_not_found: Resource not found
-err_user_not_found: User not found
-
-# System errors 5000-5999
-err_internal_server: Internal server error
-err_database_error: Database error
-err_cache_error: Cache error
+# app logger message
+internal.app.logger_debug_init_config_path: app initialized config path
+internal.app.logger_debug_init_mode: app initialized mode
+internal.app.logger_debug_executor_injected: executor injected into logger
+internal.app.logger_info_initdb_mode_completed: initdb mode completed

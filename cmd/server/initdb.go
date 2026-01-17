@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	"os"
 
 	"github.com/rei0721/go-scaffold/internal/app"
@@ -12,7 +13,7 @@ import (
 type InitdbCommand struct{}
 
 func (c *InitdbCommand) Name() string {
-	return "initdb"
+	return InitdbCommandName
 }
 
 func (c *InitdbCommand) Description() string {
@@ -20,7 +21,7 @@ func (c *InitdbCommand) Description() string {
 }
 
 func (c *InitdbCommand) Usage() string {
-	return "initdb [--config=<path>]"
+	return fmt.Sprintf("%s [--config=<path>]", InitdbCommandName)
 }
 
 func (c *InitdbCommand) Flags() []cli.Flag {

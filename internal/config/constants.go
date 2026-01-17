@@ -181,3 +181,15 @@ const (
 	// 示例: "zh-CN,en-US,ja-JP" -> ["zh-CN", "en-US", "ja-JP"]
 	DefaultSeparator = ","
 )
+
+// 应用配置名称常量
+const (
+	AppServerName   = "server"
+	AppDatabaseName = "database"
+	AppRedisName    = "redis"
+	AppLoggerName   = "logger"
+	AppI18nName     = "i18n"
+	AppExecutorName = "executor"
+	AppJWTName      = "jwt"
+	AppInitDBName   = "initdb"
+)

@@ -9,14 +9,20 @@ import (
 	"github.com/rei0721/go-scaffold/pkg/cli"
 )
 
+const (
+	AppCommandName    = "server"
+	InitdbCommandName = "initdb"
+	VersionNumber     = "0.1.2"
+)
+
 func main() {
 	// 创建 CLI 应用
 	app := cli.NewApp("go-scaffold")
-	app.SetVersion("0.1.2")
+	app.SetVersion(VersionNumber)
 	app.SetDescription("This is a go backend scaffold")
 
 	// 注册命令
-	app.AddCommand(&DevCommand{})
+	app.AddCommand(&AppCommand{})
 	app.AddCommand(&InitdbCommand{})
 
 	// 执行

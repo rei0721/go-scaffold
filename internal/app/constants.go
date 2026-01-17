@@ -31,11 +31,15 @@ var ConstantsI18nSupportedLanguages = []string{"zh-CN", "en-US"}
 
 const (
 	// InitDBScriptDir 初始化 SQL 脚本目录
-	InitDBScriptDir = "./scripts/initdb"
+	ConstantsInitDBScriptDir = "./scripts/initdb"
 
 	// InitDBLockFile 初始化锁文件名
-	InitDBLockFile = ".initialized"
+	ConstantsInitDBLockFile = ".initialized"
 
 	// InitDBScriptFileName 初始化脚本文件名模板
-	InitDBScriptFileName = "init_%s.sql" // %s 为数据库类型
+	ConstantsInitDBScriptFileName = "init" // %s 为数据库类型
+
+	ConstantsInitDBScriptFileSuffix = ".sql"
+
+	ConstantsInitDBScriptFileTemplate = "%s.%s.sql"
 )

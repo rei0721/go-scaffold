@@ -7,59 +7,10 @@ import (
 	"syscall"
 
 	"github.com/rei0721/go-scaffold/internal/app"
-	"github.com/rei0721/go-scaffold/pkg/cli"
 	"github.com/rei0721/go-scaffold/types/constants"
 )
 
-type DevCommand struct{}
-
-func (c *DevCommand) Name() string {
-	return "dev"
-}
-
-func (c *DevCommand) Description() string {
-	return "Dev Server"
-}
-
-func (c *DevCommand) Usage() string {
-	return "dev [--config=<name>]"
-}
-
-func (c *DevCommand) Flags() []cli.Flag {
-	return []cli.Flag{
-		{
-			Name:        "config",
-			ShortName:   "c",
-			Type:        cli.FlagTypeString,
-			Required:    false,
-			Default:     constants.DefaultConfigPath,
-			Description: "Config file path",
-			EnvVar:      "REI_CONFIG_PATH", // 支持环境变量
-		},
-	}
-}
-
-func (c *DevCommand) Execute(ctx *cli.Context) error {
-	configPath := ctx.GetString("config")
-
-	// 业务逻辑...
-	runServer(configPath)
-
-	return nil
-}
-
-func runServer(configPath string) {
-
-	// 1. 获取配置文件路径
-	// 首先尝试从环境变量 `constants.EnvConfigPathName` 读取配置文件路径
-	// 这样做是为了支持不同环境(开发、测试、生产)使用不同的配置文件
-	// configPath = os.Getenv(constants.EnvConfigPathName)
-	// if configPath == "" {
-	// 	// 如果环境变量未设置,使用默认路径
-	// 	// 这提供了一个合理的默认值,简化了本地开发
-	// 	configPath = defaultConfigPath
-	// }
-
+func runApp(configPath string) {
 	// 2. 初始化应用程序容器
 	// app.New() 会按照依赖顺序初始化所有组件
 	// 使用依赖注入容器模式来管理组件生命周期
