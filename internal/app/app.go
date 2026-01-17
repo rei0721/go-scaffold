@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"github.com/rei0721/go-scaffold/pkg/cache"
+	"github.com/rei0721/go-scaffold/pkg/dbtx"
 	"github.com/rei0721/go-scaffold/pkg/executor"
 	"github.com/rei0721/go-scaffold/pkg/httpserver"
 	"github.com/rei0721/go-scaffold/pkg/i18n"
@@ -41,6 +42,10 @@ type App struct {
 	// DB 数据库连接抽象层
 	// 使用接口而非具体实现,便于切换数据库
 	DB database.Database
+
+	// DBTx 数据库事务管理器
+	// 使用接口而非具体实现,便于切换数据库
+	DBTx dbtx.Manager
 
 	// Sqlgen SQL 生成器
 	// 用于生成数据库建表语句

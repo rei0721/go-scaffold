@@ -37,6 +37,7 @@ import (
 //	}
 type BaseService[T any] struct {
 	DB          database.Database // database.Database (必须依赖，延迟注入)
+	DBTx        dbtx.Manager      // dbtx.Manager (必须依赖，延迟注入)
 	Repo        T                 // 必须依赖，直接声明
 	TxManager   dbtx.Manager      // dbtx.Manager (可选，延迟注入，事务管理器)
 	Executor    executor.Manager  // executor.Manager (可选，延迟注入)

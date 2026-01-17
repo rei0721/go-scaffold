@@ -18,14 +18,13 @@ import (
 // authService 实现 AuthService 接口
 // 提供完整的认证服务功能
 type authService struct {
-	service.BaseService[repository.UserRepository]
+	service.BaseService[repository.AuthRepository]
 }
 
 // NewAuthService 创建一个新的 AuthService 实例
 // 参数:
 //
-//	repo: 用户仓库实例
-//	db: 数据库实例（用于开启事务）
+//	repo: 认证仓库实例
 //
 // 返回:
 //
@@ -33,8 +32,8 @@ type authService struct {
 //
 // 注意:
 //
-//	Crypto 等依赖通过 SetCrypto 等方法延迟注入
-func NewAuthService(repo repository.UserRepository) AuthService {
+//	其他依赖通过 SetXxx 等方法延迟注入
+func NewAuthService(repo repository.AuthRepository) AuthService {
 	s := &authService{}
 	s.SetRepository(repo)
 	return s
@@ -44,7 +43,7 @@ func NewAuthService(repo repository.UserRepository) AuthService {
 // 支持事务：同时创建用户和分配默认角色
 func (s *authService) Register(ctx context.Context, req *types.RegisterRequest) (*types.UserResponse, error) {
 	// 1. 检查用户名是否已存在
-	existingUser, err := s.Repo.FindByUsername(ctx, req.Username)
+	existingUser, err := s.Repo.FindUserByUsername(ctx, req.Username)
 	if err != nil {
 		return nil, errors.NewBizError(errors.ErrDatabaseError, "failed to check username").WithCause(err)
 	}
@@ -53,7 +52,7 @@ func (s *authService) Register(ctx context.Context, req *types.RegisterRequest) 
 	}
 
 	// 2. 检查邮箱是否已存在
-	existingUser, err = s.Repo.FindByEmail(ctx, req.Email)
+	existingUser, err = s.Repo.FindUserByEmail(ctx, req.Email)
 	if err != nil {
 		return nil, errors.NewBizError(errors.ErrDatabaseError, "failed to check email").WithCause(err)
 	}
@@ -88,7 +87,7 @@ func (s *authService) Register(ctx context.Context, req *types.RegisterRequest) 
 	// 使用dbtx执行事务
 	err = txManager.WithTx(ctx, func(tx *gorm.DB) error {
 		// 6. 在事务中创建用户
-		if err := s.Repo.CreateWithTx(ctx, tx, user); err != nil {
+		if err := s.Repo.CreateUser(ctx, tx, user); err != nil {
 			return errors.NewBizError(errors.ErrDatabaseError, "failed to create user").WithCause(err)
 		}
 
@@ -149,7 +148,7 @@ func (s *authService) registerWithoutTxManager(ctx context.Context, user *models
 	}()
 
 	// 在事务中创建用户
-	if err := s.Repo.CreateWithTx(ctx, tx, user); err != nil {
+	if err := s.Repo.CreateUser(ctx, tx, user); err != nil {
 		tx.Rollback()
 		return nil, errors.NewBizError(errors.ErrDatabaseError, "failed to create user").WithCause(err)
 	}
@@ -172,7 +171,7 @@ func (s *authService) registerWithoutTxManager(ctx context.Context, user *models
 // Login 用户登录
 func (s *authService) Login(ctx context.Context, req *types.LoginRequest) (*types.LoginResponse, error) {
 	// 1. 根据用户名查找用户
-	user, err := s.Repo.FindByUsername(ctx, req.Username)
+	user, err := s.Repo.FindUserByUsername(ctx, req.Username)
 	if err != nil {
 		return nil, errors.NewBizError(errors.ErrDatabaseError, "failed to find user").WithCause(err)
 	}
@@ -301,7 +300,7 @@ func (s *authService) Logout(ctx context.Context, userID int64) error {
 // ChangePassword 修改密码
 func (s *authService) ChangePassword(ctx context.Context, userID int64, req *types.ChangePasswordRequest) error {
 	// 1. 查找用户
-	user, err := s.Repo.FindByID(ctx, userID)
+	user, err := s.Repo.FindUserByID(ctx, userID)
 	if err != nil {
 		return errors.NewBizError(errors.ErrDatabaseError, "failed to find user").WithCause(err)
 	}
@@ -323,9 +322,10 @@ func (s *authService) ChangePassword(ctx context.Context, userID int64, req *typ
 		return errors.NewBizError(errors.ErrInternalServer, "failed to hash password").WithCause(err)
 	}
 
-	// 4. 更新密码
-	user.Password = hashedPassword
-	if err := s.Repo.Update(ctx, user); err != nil {
+	// 4. 更新密码（注意：这里应该在事务中处理，暂时使用DB直接更新）
+	// TODO: 重构为使用事务
+	tx := s.DB.DB()
+	if err := s.Repo.UpdateUserPassword(ctx, tx, userID, hashedPassword); err != nil {
 		return errors.NewBizError(errors.ErrDatabaseError, "failed to update password").WithCause(err)
 	}
 

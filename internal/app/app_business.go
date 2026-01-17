@@ -7,25 +7,25 @@ import (
 	"github.com/rei0721/go-scaffold/internal/repository"
 	"github.com/rei0721/go-scaffold/internal/router"
 	"github.com/rei0721/go-scaffold/internal/service"
+	"github.com/rei0721/go-scaffold/internal/service/auth"
 	"github.com/rei0721/go-scaffold/pkg/dbtx"
 )
 
 func (app *App) initBusiness() error {
 	// 初始化 repository layer
-	userRepo := repository.NewUserRepository(app.DB.DB())
-
 	authRepo := repository.NewAuthRepository(app.DB.DB())
 
-	// 初始化 service layer (不直接注入executor)
-	userService := service.NewUserService(userRepo)
+	// 初始化 auth service
+	authService := auth.NewAuthService(authRepo)
 
 	// 注入 app 到 Service 层
-	if _, err := app.setServiceAll(userService); err != nil {
+	if _, err := app.setServiceAll(authService); err != nil {
 		return err
 	}
 
 	// 初始化 handler layer
 	userHandler := handler.NewUserHandler(userService)
+	authHandler := handler.NewAuthHandler(authService)
 
 	// 初始化 router（传入JWT用于认证中间件）
 	r := router.New(userHandler, app.Logger, app.JWT)
