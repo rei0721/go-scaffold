@@ -257,7 +257,58 @@ sequenceDiagram
 - `I18n` - 国际化配置
 - `Executor` - 协程池配置
 
-### 3. CLI 框架 (`pkg/cli`)
+### 3. Service 业务服务层 (`internal/service`)
+
+**设计文档**: [`docs/architecture/service_design.md`](/docs/architecture/service_design.md)
+
+**职责**:
+
+- 业务逻辑编排（协调多个Repository）
+- 事务管理（跨Repository的事务控制）
+- 缓存策略（Cache-Aside模式）
+- 业务验证（领域级别的验证规则）
+- 数据转换（Model ↔ DTO）
+- 异步任务（非核心流程的异步处理）
+
+**核心设计**:
+
+```go
+// BaseService 泛型基类
+type BaseService[T any] struct {
+    Repo     repository.Repository[T]  // 必须依赖
+    Executor atomic.Value               // executor.Manager (可选)
+    Cache    atomic.Value               // cache.Cache (可选)
+    Logger   atomic.Value               // logger.Logger (可选)
+    JWT      atomic.Value               // jwt.JWT (可选)
+}
+```
+
+**设计亮点**:
+
+- ✅ **泛型基类** - 避免重复的依赖管理代码
+- ✅ **延迟注入** - `atomic.Value` 支持可选依赖的延迟注入
+- ✅ **接口分离** - 接口定义（`user.go`）与实现（`user_impl.go`）分离
+- ✅ **降级策略** - 可选依赖缺失时优雅降级
+
+**标准文件结构**:
+
+```
+internal/service/
+├── base_service.go      # BaseService 泛型基类
+├── constants.go         # 缓存键前缀、TTL等常量
+├── user.go              # UserService 接口定义
+├── user_impl.go         # UserService 实现
+└── user_test.go         # 单元测试
+```
+
+**缓存策略** (Cache-Aside模式):
+
+1. 读操作: 先查缓存，未命中再查数据库，异步写入缓存
+2. 写操作: 更新数据库后，异步失效缓存
+
+**示例实现**: 参考 [`internal/service/user_impl.go`](/internal/service/user_impl.go)
+
+### 4. CLI 框架 (`pkg/cli`)
 
 **文档**: [`pkg/cli/doc.go`](/pkg/cli/doc.go)
 

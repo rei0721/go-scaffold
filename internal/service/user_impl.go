@@ -4,14 +4,9 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"sync/atomic"
 
 	"github.com/rei0721/go-scaffold/internal/models"
 	"github.com/rei0721/go-scaffold/internal/repository"
-	"github.com/rei0721/go-scaffold/pkg/cache"
-	"github.com/rei0721/go-scaffold/pkg/executor"
-	"github.com/rei0721/go-scaffold/pkg/jwt"
-	"github.com/rei0721/go-scaffold/pkg/logger"
 	"github.com/rei0721/go-scaffold/types"
 	"github.com/rei0721/go-scaffold/types/constants"
 	"github.com/rei0721/go-scaffold/types/errors"
@@ -27,110 +22,13 @@ import (
 // - 单一职责:只负责用户相关的业务逻辑
 // - 错误处理:将底层错误转换为业务错误,提供更好的错误信息
 type userService struct {
-	// repo 用户数据仓库
-	// 通过接口依赖,而不是具体实现,遵循依赖倒置原则
-	repo repository.UserRepository
-
-	// executor 任务执行器（可选）
-	// 使用 atomic.Value 实现无锁读取
-	// 用于执行异步任务(如发送邮件、记录日志等)
-	// 避免阻塞主要业务流程
-	executor atomic.Value // 存储 executor.Manager
-
-	// cache 缓存实例（可选）
-	// 使用 atomic.Value 实现无锁读取
-	// 用于缓存用户数据，提高查询性能
-	cache atomic.Value // 存储 cache.Cache
-
-	// logger 日志记录器（可选）
-	// 使用 atomic.Value 实现无锁读取
-	// 用于记录业务操作日志
-	logger atomic.Value // 存储 logger.Logger
-
-	// jwt JWT管理器（可选）
-	// 使用 atomic.Value 实现无锁读取
-	// 用于生成和验证访问令牌
-	jwt atomic.Value // 存储 jwt.JWT
+	BaseService[repository.UserRepository]
 }
 
-// NewUserService 创建一个新的 UserService 实例
-// 这是工厂函数,遵循依赖注入模式
-// 参数:
-//
-//	repo: 用户仓库接口,提供数据访问能力
-//
-// 返回:
-//
-//	UserService 接口,而不是具体类型
-//	这样调用者只依赖接口,可以方便地进行单元测试(使用 mock)
-//
-// 注意:
-//
-//	Executor、Cache、Logger、JWT 需要通过相应的Set方法延迟注入
 func NewUserService(repo repository.UserRepository) UserService {
-	return &userService{
-		repo: repo,
-	}
-}
-
-// SetExecutor 设置协程池管理器
-// 实现延迟注入模式，支持在Service创建后设置
-// 使用 atomic.Value 实现原子替换，无需加锁
-func (s *userService) SetExecutor(exec executor.Manager) {
-	s.executor.Store(exec)
-}
-
-// getExecutor 获取当前executor（内部辅助方法）
-func (s *userService) getExecutor() executor.Manager {
-	if exec := s.executor.Load(); exec != nil {
-		return exec.(executor.Manager)
-	}
-	return nil
-}
-
-// SetCache 设置缓存实例
-// 实现延迟注入模式，支持在Service创建后设置
-// 使用 atomic.Value 实现原子替换，无需加锁
-func (s *userService) SetCache(c cache.Cache) {
-	s.cache.Store(c)
-}
-
-// getCache 获取当前缓存（内部辅助方法）
-func (s *userService) getCache() cache.Cache {
-	if c := s.cache.Load(); c != nil {
-		return c.(cache.Cache)
-	}
-	return nil
-}
-
-// SetLogger 设置日志记录器
-// 实现延迟注入模式，支持在Service创建后设置
-// 使用 atomic.Value 实现原子替换，无需加锁
-func (s *userService) SetLogger(l logger.Logger) {
-	s.logger.Store(l)
-}
-
-// getLogger 获取当前logger（内部辅助方法）
-func (s *userService) getLogger() logger.Logger {
-	if l := s.logger.Load(); l != nil {
-		return l.(logger.Logger)
-	}
-	return nil
-}
-
-// SetJWT 设置JWT管理器
-// 实现延迟注入模式，支持在Service创建后设置
-// 使用 atomic.Value 实现原子替换，无需加锁
-func (s *userService) SetJWT(j jwt.JWT) {
-	s.jwt.Store(j)
-}
-
-// getJWT 获取当前JWT管理器（内部辅助方法）
-func (s *userService) getJWT() jwt.JWT {
-	if j := s.jwt.Load(); j != nil {
-		return j.(jwt.JWT)
-	}
-	return nil
+	u := &userService{}
+	u.SetRepository(repo)
+	return u
 }
 
 // userCacheKey 生成用户缓存键
@@ -164,7 +62,7 @@ func (s *userService) Register(ctx context.Context, req *types.RegisterRequest) 
 	// 1. 检查用户名是否已存在
 	// 这是业务规则:用户名必须唯一
 	// 虽然数据库有唯一索引,但提前检查可以提供更友好的错误信息
-	existingUser, err := s.repo.FindByUsername(ctx, req.Username)
+	existingUser, err := s.Repo.FindByUsername(ctx, req.Username)
 	if err != nil {
 		// 数据库查询错误,使用 WithCause 保留原始错误,便于调试
 		return nil, errors.NewBizError(errors.ErrDatabaseError, "failed to check username").WithCause(err)
@@ -177,7 +75,7 @@ func (s *userService) Register(ctx context.Context, req *types.RegisterRequest) 
 
 	// 2. 检查邮箱是否已存在
 	// 邮箱也必须唯一,用于账户恢复和通知
-	existingUser, err = s.repo.FindByEmail(ctx, req.Email)
+	existingUser, err = s.Repo.FindByEmail(ctx, req.Email)
 	if err != nil {
 		return nil, errors.NewBizError(errors.ErrDatabaseError, "failed to check email").WithCause(err)
 	}
@@ -210,7 +108,7 @@ func (s *userService) Register(ctx context.Context, req *types.RegisterRequest) 
 
 	// 5. 保存到数据库
 	// GORM 会自动设置 ID(Snowflake)、CreatedAt 和 UpdatedAt
-	if err := s.repo.Create(ctx, user); err != nil {
+	if err := s.Repo.Create(ctx, user); err != nil {
 		// 创建失败,可能是数据库连接问题或约束冲突
 		return nil, errors.NewBizError(errors.ErrDatabaseError, "failed to create user").WithCause(err)
 	}
@@ -255,7 +153,7 @@ func (s *userService) Register(ctx context.Context, req *types.RegisterRequest) 
 func (s *userService) Login(ctx context.Context, req *types.LoginRequest) (*types.LoginResponse, error) {
 	// 1. 根据用户名查找用户
 	// 查询数据库获取用户完整信息(包括密码哈希)
-	user, err := s.repo.FindByUsername(ctx, req.Username)
+	user, err := s.Repo.FindByUsername(ctx, req.Username)
 	if err != nil {
 		// 数据库查询错误
 		return nil, errors.NewBizError(errors.ErrDatabaseError, "failed to find user").WithCause(err)
@@ -385,7 +283,7 @@ func (s *userService) GetByID(ctx context.Context, id int64) (*types.UserRespons
 	}
 
 	// 2. 查询数据库获取用户信息
-	user, err := s.repo.FindByID(ctx, id)
+	user, err := s.Repo.FindByID(ctx, id)
 	if err != nil {
 		// 数据库查询错误
 		return nil, errors.NewBizError(errors.ErrDatabaseError, "failed to find user").WithCause(err)
@@ -446,7 +344,7 @@ func (s *userService) List(ctx context.Context, page, pageSize int) (*result.Pag
 
 	// 2. 查询数据库
 	// FindAll 会返回当前页的用户列表和总记录数
-	users, total, err := s.repo.FindAll(ctx, page, pageSize)
+	users, total, err := s.Repo.FindAll(ctx, page, pageSize)
 	if err != nil {
 		// 数据库查询错误
 		return nil, errors.NewBizError(errors.ErrDatabaseError, "failed to list users").WithCause(err)
@@ -481,7 +379,7 @@ func (s *userService) List(ctx context.Context, page, pageSize int) (*result.Pag
 //	error: 更新失败的错误
 func (s *userService) Update(ctx context.Context, id int64, req *types.UpdateUserRequest) (*types.UserResponse, error) {
 	// 1. 查询用户是否存在
-	user, err := s.repo.FindByID(ctx, id)
+	user, err := s.Repo.FindByID(ctx, id)
 	if err != nil {
 		return nil, errors.NewBizError(errors.ErrDatabaseError, "failed to find user").WithCause(err)
 	}
@@ -496,7 +394,7 @@ func (s *userService) Update(ctx context.Context, id int64, req *types.UpdateUse
 
 	// 2. 检查用户名唯一性（如果更新了用户名）
 	if req.Username != nil && *req.Username != user.Username {
-		existingUser, err := s.repo.FindByUsername(ctx, *req.Username)
+		existingUser, err := s.Repo.FindByUsername(ctx, *req.Username)
 		if err != nil {
 			return nil, errors.NewBizError(errors.ErrDatabaseError, "failed to check username").WithCause(err)
 		}
@@ -508,7 +406,7 @@ func (s *userService) Update(ctx context.Context, id int64, req *types.UpdateUse
 
 	// 3. 检查邮箱唯一性（如果更新了邮箱）
 	if req.Email != nil && *req.Email != user.Email {
-		existingUser, err := s.repo.FindByEmail(ctx, *req.Email)
+		existingUser, err := s.Repo.FindByEmail(ctx, *req.Email)
 		if err != nil {
 			return nil, errors.NewBizError(errors.ErrDatabaseError, "failed to check email").WithCause(err)
 		}
@@ -524,7 +422,7 @@ func (s *userService) Update(ctx context.Context, id int64, req *types.UpdateUse
 	}
 
 	// 5. 保存到数据库
-	if err := s.repo.Update(ctx, user); err != nil {
+	if err := s.Repo.Update(ctx, user); err != nil {
 		return nil, errors.NewBizError(errors.ErrDatabaseError, "failed to update user").WithCause(err)
 	}
 
@@ -550,7 +448,7 @@ func (s *userService) Update(ctx context.Context, id int64, req *types.UpdateUse
 //	error: 删除失败的错误
 func (s *userService) Delete(ctx context.Context, id int64) error {
 	// 1. 查询用户是否存在
-	user, err := s.repo.FindByID(ctx, id)
+	user, err := s.Repo.FindByID(ctx, id)
 	if err != nil {
 		return errors.NewBizError(errors.ErrDatabaseError, "failed to find user").WithCause(err)
 	}
@@ -564,7 +462,7 @@ func (s *userService) Delete(ctx context.Context, id int64) error {
 	}
 
 	// 2. 软删除用户
-	if err := s.repo.Delete(ctx, id); err != nil {
+	if err := s.Repo.Delete(ctx, id); err != nil {
 		return errors.NewBizError(errors.ErrDatabaseError, "failed to delete user").WithCause(err)
 	}
 
