@@ -16,9 +16,9 @@ type AuthRepository interface {
 	//   ctx: 上下文
 	//   username: 用户名
 	// 返回:
-	//   *models.User: 用户对象，不存在时返回nil
+	//   *models.DBUser: 用户对象，不存在时返回nil
 	//   error: 数据库错误
-	FindUserByUsername(ctx context.Context, username string) (*models.User, error)
+	FindUserByUsername(ctx context.Context, username string) (*models.DBUser, error)
 
 	// FindUserByEmail 根据邮箱查找用户
 	// 用于邮箱登录和注册唯一性验证
@@ -26,9 +26,9 @@ type AuthRepository interface {
 	//   ctx: 上下文
 	//   email: 邮箱地址
 	// 返回:
-	//   *models.User: 用户对象，不存在时返回nil
+	//   *models.DBUser: 用户对象，不存在时返回nil
 	//   error: 数据库错误
-	FindUserByEmail(ctx context.Context, email string) (*models.User, error)
+	FindUserByEmail(ctx context.Context, email string) (*models.DBUser, error)
 
 	// FindUserByID 根据ID查找用户
 	// 用于Token刷新等场景
@@ -36,9 +36,9 @@ type AuthRepository interface {
 	//   ctx: 上下文
 	//   userID: 用户ID
 	// 返回:
-	//   *models.User: 用户对象，不存在时返回nil
+	//   *models.DBUser: 用户对象，不存在时返回nil
 	//   error: 数据库错误
-	FindUserByID(ctx context.Context, userID int64) (*models.User, error)
+	FindUserByID(ctx context.Context, userID int64) (*models.DBUser, error)
 
 	// CreateUser 创建新用户（在事务中）
 	// 用于用户注册
@@ -48,7 +48,7 @@ type AuthRepository interface {
 	//   user: 要创建的用户
 	// 返回:
 	//   error: 创建失败的错误
-	CreateUser(ctx context.Context, tx *gorm.DB, user *models.User) error
+	CreateUser(ctx context.Context, tx *gorm.DB, user *models.DBUser) error
 
 	// UpdateUserPassword 更新用户密码（在事务中）
 	// 用于修改密码功能
@@ -69,5 +69,5 @@ type AuthRepository interface {
 	//   user: 要更新的用户对象
 	// 返回:
 	//   error: 更新失败的错误
-	UpdateUser(ctx context.Context, tx *gorm.DB, user *models.User) error
+	UpdateUser(ctx context.Context, tx *gorm.DB, user *models.DBUser) error
 }

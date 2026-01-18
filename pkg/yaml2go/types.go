@@ -99,4 +99,71 @@ type StructInfo struct {
 
 	// Comment 结构体注释
 	Comment string
+
+	// ConfigName 配置名称（对应 YAML 中的顶级键名）
+	// 例如: "server", "database", "redis"
+	ConfigName string
+
+	// DefaultValues 默认值映射 {字段名: 默认值}
+	// 用于生成 DefaultConfig 方法
+	DefaultValues map[string]interface{}
+}
+
+// ConfigNode 配置节点接口
+// 每个生成的配置结构体都应实现此接口
+// 用于统一配置管理、验证和环境变量覆盖
+type ConfigNode interface {
+	// ValidateName 返回配置名称（对应YAML中的键名）
+	// 例如: "server", "database", "redis"
+	ValidateName() string
+
+	// Validate 验证配置的有效性
+	// 返回 nil 表示验证通过，否则返回错误信息
+	// 开发者可在生成代码后自行添加验证逻辑
+	Validate() error
+
+	// DefaultConfig 返回默认配置
+	// 返回一个包含默认值的配置实例
+	DefaultConfig() interface{}
+
+	// OverrideConfig 使用环境变量覆盖配置
+	// prefix: 环境变量前缀，如 "APP_" 则最终变量名为 APP_SERVER_HOST
+	// 支持的类型转换:
+	//   - string: 直接赋值
+	//   - int64: strconv.ParseInt
+	//   - float64: strconv.ParseFloat
+	//   - bool: strconv.ParseBool
+	OverrideConfig(prefix string)
+}
+
+// FileContent 文件内容
+// 表示生成的单个 Go 源文件
+type FileContent struct {
+	// FileName 文件名（不含路径，如 "server_config.go"）
+	FileName string
+
+	// Content 文件内容（完整的 Go 代码）
+	Content string
+
+	// ConfigName 配置名称（如 "server", "database"）
+	// 空字符串表示主配置文件
+	ConfigName string
+
+	// StructName 结构体名称（如 "ServerConfig", "DatabaseConfig"）
+	StructName string
+}
+
+// GenerateResult 代码生成结果
+// 包含主配置文件和所有子配置文件
+type GenerateResult struct {
+	// MainConfig 主配置文件内容（config.go）
+	// 包含所有子配置的组合结构体
+	MainConfig *FileContent
+
+	// SubConfigs 子配置文件列表
+	// 每个元素对应一个顶级配置（如 server_config.go, database_config.go）
+	SubConfigs []*FileContent
+
+	// PackageName 包名
+	PackageName string
 }

@@ -27,8 +27,8 @@ func NewAuthRepository(db *gorm.DB) AuthRepository {
 }
 
 // FindUserByUsername 根据用户名查找用户
-func (r *authRepository) FindUserByUsername(ctx context.Context, username string) (*models.User, error) {
-	var user models.User
+func (r *authRepository) FindUserByUsername(ctx context.Context, username string) (*models.DBUser, error) {
+	var user models.DBUser
 	err := r.db.WithContext(ctx).Where("username = ?", username).First(&user).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -40,8 +40,8 @@ func (r *authRepository) FindUserByUsername(ctx context.Context, username string
 }
 
 // FindUserByEmail 根据邮箱查找用户
-func (r *authRepository) FindUserByEmail(ctx context.Context, email string) (*models.User, error) {
-	var user models.User
+func (r *authRepository) FindUserByEmail(ctx context.Context, email string) (*models.DBUser, error) {
+	var user models.DBUser
 	err := r.db.WithContext(ctx).Where("email = ?", email).First(&user).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -53,8 +53,8 @@ func (r *authRepository) FindUserByEmail(ctx context.Context, email string) (*mo
 }
 
 // FindUserByID 根据ID查找用户
-func (r *authRepository) FindUserByID(ctx context.Context, userID int64) (*models.User, error) {
-	var user models.User
+func (r *authRepository) FindUserByID(ctx context.Context, userID int64) (*models.DBUser, error) {
+	var user models.DBUser
 	err := r.db.WithContext(ctx).First(&user, userID).Error
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -66,20 +66,20 @@ func (r *authRepository) FindUserByID(ctx context.Context, userID int64) (*model
 }
 
 // CreateUser 创建新用户（在事务中）
-func (r *authRepository) CreateUser(ctx context.Context, tx *gorm.DB, user *models.User) error {
+func (r *authRepository) CreateUser(ctx context.Context, tx *gorm.DB, user *models.DBUser) error {
 	return tx.WithContext(ctx).Create(user).Error
 }
 
 // UpdateUserPassword 更新用户密码（在事务中）
 func (r *authRepository) UpdateUserPassword(ctx context.Context, tx *gorm.DB, userID int64, hashedPassword string) error {
 	return tx.WithContext(ctx).
-		Model(&models.User{}).
+		Model(&models.DBUser{}).
 		Where("id = ?", userID).
 		Update("password", hashedPassword).
 		Error
 }
 
 // UpdateUser 更新用户信息（在事务中）
-func (r *authRepository) UpdateUser(ctx context.Context, tx *gorm.DB, user *models.User) error {
+func (r *authRepository) UpdateUser(ctx context.Context, tx *gorm.DB, user *models.DBUser) error {
 	return tx.WithContext(ctx).Save(user).Error
 }

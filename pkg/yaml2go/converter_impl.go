@@ -3,8 +3,6 @@ package yaml2go
 import (
 	"bytes"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"sync"
 
@@ -52,20 +50,29 @@ func normalizeConfig(config *Config) *Config {
 		config.IndentStyle = DefaultIndentStyle
 	}
 
+	// 设置默认 GenerateMethods（默认启用）
+	if !config.GenerateMethods {
+		config.GenerateMethods = true
+	}
+
+	// 设置默认 SplitFiles（默认启用）
+	// 注意：这是一个breaking change，如果需要兼容旧版本，应该根据实际情况设置
+	config.SplitFiles = true // 强制启用新模式
+
 	return config
 }
 
 // Convert 实现 Converter.Convert
-func (c *converter) Convert(yamlStr string) (string, error) {
+func (c *converter) Convert(yamlStr string) (*GenerateResult, error) {
 	// 1. 验证输入
 	if strings.TrimSpace(yamlStr) == "" {
-		return "", ErrEmptyInput
+		return nil, ErrEmptyInput
 	}
 
 	// 2. 解析 YAML
 	var data interface{}
 	if err := yaml.Unmarshal([]byte(yamlStr), &data); err != nil {
-		return "", fmt.Errorf("%w: %v", ErrInvalidYAML, err)
+		return nil, fmt.Errorf("%w: %v", ErrInvalidYAML, err)
 	}
 
 	// 3. 获取配置
@@ -73,42 +80,76 @@ func (c *converter) Convert(yamlStr string) (string, error) {
 	cfg := c.config
 	c.mu.RUnlock()
 
-	// 4. 构建结构体信息
+	// 4. 检查是否分离文件
+	if !cfg.SplitFiles {
+		// 兼容模式：生成单个文件
+		return c.convertLegacy(data, cfg)
+	}
+
+	// 5. 新模式：生成多个文件
+	return c.convertMultiFile(data, cfg)
+}
+
+// convertLegacy 兼容模式：生成单个文件（保持向后兼容）
+func (c *converter) convertLegacy(data interface{}, cfg *Config) (*GenerateResult, error) {
+	// 构建结构体信息
 	structInfo, err := c.buildStructInfo(data, cfg.StructName)
 	if err != nil {
-		return "", fmt.Errorf("%w: %v", ErrTypeInference, err)
+		return nil, fmt.Errorf("%w: %v", ErrTypeInference, err)
 	}
 	structInfo.PackageName = cfg.PackageName
 
-	// 5. 生成代码
+	// 生成代码
 	code, err := c.generateCode(structInfo)
 	if err != nil {
-		return "", fmt.Errorf("%w: %v", ErrCodeGeneration, err)
+		return nil, fmt.Errorf("%w: %v", ErrCodeGeneration, err)
 	}
 
-	return code, nil
+	// 返回单文件结果
+	result := &GenerateResult{
+		PackageName: cfg.PackageName,
+		MainConfig: &FileContent{
+			FileName:   "config.go",
+			Content:    code,
+			ConfigName: "",
+			StructName: cfg.StructName,
+		},
+		SubConfigs: nil,
+	}
+
+	return result, nil
 }
 
-// ConvertToFile 实现 Converter.ConvertToFile
-func (c *converter) ConvertToFile(yamlStr string, outputPath string) error {
-	// 1. 转换为代码
-	code, err := c.Convert(yamlStr)
+// convertMultiFile 新模式：为每个顶级配置生成独立文件
+func (c *converter) convertMultiFile(data interface{}, cfg *Config) (*GenerateResult, error) {
+	// 确保根数据是 map
+	rootMap, ok := data.(map[string]interface{})
+	if !ok {
+		return nil, fmt.Errorf("root element must be an object, got %T", data)
+	}
+
+	result := &GenerateResult{
+		PackageName: cfg.PackageName,
+		SubConfigs:  make([]*FileContent, 0, len(rootMap)),
+	}
+
+	// 为每个顶级配置生成子配置文件
+	for configName, configValue := range rootMap {
+		subConfig, err := c.generateSubConfig(configName, configValue, cfg)
+		if err != nil {
+			return nil, fmt.Errorf("failed to generate config for %s: %w", configName, err)
+		}
+		result.SubConfigs = append(result.SubConfigs, subConfig)
+	}
+
+	// 生成主配置文件
+	mainConfig, err := c.generateMainConfig(rootMap, cfg)
 	if err != nil {
-		return err
+		return nil, fmt.Errorf("failed to generate main config: %w", err)
 	}
+	result.MainConfig = mainConfig
 
-	// 2. 创建父目录
-	dir := filepath.Dir(outputPath)
-	if err := os.MkdirAll(dir, 0755); err != nil {
-		return fmt.Errorf("%w: %v", ErrFileWrite, err)
-	}
-
-	// 3. 写入文件
-	if err := os.WriteFile(outputPath, []byte(code), 0644); err != nil {
-		return fmt.Errorf("%w: %v", ErrFileWrite, err)
-	}
-
-	return nil
+	return result, nil
 }
 
 // SetConfig 实现 Converter.SetConfig
@@ -356,4 +397,199 @@ func (c *converter) buildFieldType(field *FieldInfo) jen.Code {
 func (c *converter) generateNestedStructs(f *jen.File, fields []*FieldInfo) {
 	// 当前使用内联结构体，不需要额外生成
 	// 如果未来需要提取嵌套结构体为独立类型，在此实现
+}
+
+// generateMainConfig 生成主配置文件（config.go）
+func (c *converter) generateMainConfig(rootMap map[string]interface{}, cfg *Config) (*FileContent, error) {
+	f := jen.NewFile(cfg.PackageName)
+
+	// 添加注释
+	f.Comment("Config 应用配置")
+	f.Comment("此文件由 yaml2go 自动生成，请勿手动修改")
+
+	// 构建主结构体字段
+	structFields := []jen.Code{}
+	for configName := range rootMap {
+		// 生成结构体名称 (如 "server" -> "ServerConfig")
+		structName := sanitizeFieldName(configName) + "Config"
+
+		// 创建字段
+		fieldCode := jen.Id(sanitizeFieldName(configName)).
+			Op("*").Id(structName).
+			Tag(map[string]string{"": buildTags(map[string]string{
+				"mapstructure": configName,
+				"json":         configName,
+				"yaml":         configName,
+			}, false)[1:]})
+
+		structFields = append(structFields, fieldCode)
+	}
+
+	// 生成主 Config 结构体
+	f.Type().Id("Config").Struct(structFields...)
+
+	// 渲染代码
+	buf := &bytes.Buffer{}
+	if err := f.Render(buf); err != nil {
+		return nil, err
+	}
+
+	return &FileContent{
+		FileName:   "config.go",
+		Content:    buf.String(),
+		ConfigName: "",
+		StructName: "Config",
+	}, nil
+}
+
+// generateSubConfig 为单个顶级配置生成独立文件
+func (c *converter) generateSubConfig(configName string, configValue interface{}, cfg *Config) (*FileContent, error) {
+	// 1. 构建结构体信息
+	structName := sanitizeFieldName(configName) + "Config"
+
+	// 确保是 map 类型
+	configMap, ok := configValue.(map[string]interface{})
+	if !ok {
+		// 如果不是 map，创建一个简单的值字段
+		return c.generateSimpleConfig(configName, configValue, cfg)
+	}
+
+	// 2. 构建字段
+	var fields []*FieldInfo
+	for key, value := range configMap {
+		field, err := c.buildFieldInfo(key, value)
+		if err != nil {
+			return nil, err
+		}
+		fields = append(fields, field)
+	}
+
+	// 3. 创建 StructInfo
+	structInfo := &StructInfo{
+		Name:          structName,
+		PackageName:   cfg.PackageName,
+		Fields:        fields,
+		Comment:       structName + " " + configName + " 配置",
+		ConfigName:    configName,
+		DefaultValues: extractDefaultValues(configMap),
+	}
+
+	// 4. 生成文件（暂时不包含方法，留待阶段3实现）
+	code, err := c.generateSubConfigCode(structInfo, cfg)
+	if err != nil {
+		return nil, err
+	}
+
+	// 5. 生成文件名
+	fileName := toSnakeCase(configName) + "_config.go"
+
+	return &FileContent{
+		FileName:   fileName,
+		Content:    code,
+		ConfigName: configName,
+		StructName: structName,
+	}, nil
+}
+
+// generateSimpleConfig 为简单类型配置生成代码
+func (c *converter) generateSimpleConfig(configName string, configValue interface{}, cfg *Config) (*FileContent, error) {
+	structName := sanitizeFieldName(configName) + "Config"
+	f := jen.NewFile(cfg.PackageName)
+
+	// 推断类型
+	fieldType, _, _, err := c.inferType(configValue)
+	if err != nil {
+		return nil, err
+	}
+
+	// 简单的值包装结构体
+	f.Type().Id(structName).Struct(
+		jen.Id("Value").Add(jen.Id(fieldType.String())).Tag(map[string]string{
+			"": buildTags(map[string]string{
+				"json":         "value",
+				"yaml":         "value",
+				"mapstructure": "value",
+			}, false)[1:],
+		}),
+	)
+
+	buf := &bytes.Buffer{}
+	if err := f.Render(buf); err != nil {
+		return nil, err
+	}
+
+	// ConfigBlockFilenameSuffix 配置块文件名后缀
+	fileName := toSnakeCase(configName) + ConfigBlockFilenameSuffix
+	return &FileContent{
+		FileName:   fileName,
+		Content:    buf.String(),
+		ConfigName: configName,
+		StructName: structName,
+	}, nil
+}
+
+// generateSubConfigCode 生成子配置的结构体代码（包含方法）
+func (c *converter) generateSubConfigCode(structInfo *StructInfo, cfg *Config) (string, error) {
+	f := jen.NewFile(structInfo.PackageName)
+
+	// 添加文件注释
+	f.Comment("此文件由 yaml2go 自动生成，请勿手动修改")
+	f.Line()
+
+	// 生成结构体
+	c.generateStruct(f, structInfo.Name, structInfo.Fields, structInfo.Comment)
+
+	// 渲染结构体代码
+	buf := &bytes.Buffer{}
+	if err := f.Render(buf); err != nil {
+		return "", err
+	}
+
+	structCode := buf.String()
+
+	// 生成方法代码
+	if cfg.GenerateMethods {
+		methodsCode, err := c.generateMethods(structInfo, cfg)
+		if err != nil {
+			return "", fmt.Errorf("failed to generate methods: %w", err)
+		}
+
+		// 合并结构体代码和方法代码
+		// 从方法代码中提取函数部分（去掉 package 声明）
+		methodsLines := strings.Split(methodsCode, "\n")
+		var cleanMethodsLines []string
+		skipPackage := false
+		for _, line := range methodsLines {
+			if strings.HasPrefix(line, "package ") {
+				skipPackage = true
+				continue
+			}
+			if skipPackage && strings.TrimSpace(line) == "" {
+				skipPackage = false
+				continue
+			}
+			if !skipPackage {
+				cleanMethodsLines = append(cleanMethodsLines, line)
+			}
+		}
+
+		if len(cleanMethodsLines) > 0 {
+			structCode += "\n" + strings.Join(cleanMethodsLines, "\n")
+		}
+	}
+
+	return structCode, nil
+}
+
+// extractDefaultValues 从配置 map 中提取默认值
+func extractDefaultValues(configMap map[string]interface{}) map[string]interface{} {
+	defaults := make(map[string]interface{})
+	for key, value := range configMap {
+		// 只保存基础类型的默认值
+		switch value.(type) {
+		case string, int, int64, float64, bool:
+			defaults[key] = value
+		}
+	}
+	return defaults
 }

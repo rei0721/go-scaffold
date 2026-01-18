@@ -67,7 +67,7 @@ func (s *authService) Register(ctx context.Context, req *types.RegisterRequest) 
 	}
 
 	// 4. 创建用户对象
-	user := &models.User{
+	user := &models.DBUser{
 		Username: req.Username,
 		Email:    req.Email,
 		Password: hashedPassword,
@@ -132,7 +132,7 @@ func (s *authService) Register(ctx context.Context, req *types.RegisterRequest) 
 }
 
 // registerWithoutTxManager 降级处理：不使用txManager的传统事务方式
-func (s *authService) registerWithoutTxManager(ctx context.Context, user *models.User) (*types.UserResponse, error) {
+func (s *authService) registerWithoutTxManager(ctx context.Context, user *models.DBUser) (*types.UserResponse, error) {
 	// 开启事务
 	tx := s.DB.DB().Begin()
 	if tx.Error != nil {
@@ -389,7 +389,7 @@ func (s *authService) RefreshToken(ctx context.Context, req *types.RefreshTokenR
 }
 
 // toUserResponse 将 User 模型转换为 UserResponse
-func toUserResponse(user *models.User) *types.UserResponse {
+func toUserResponse(user *models.DBUser) *types.UserResponse {
 	return &types.UserResponse{
 		UserID:    user.ID,
 		Username:  user.Username,

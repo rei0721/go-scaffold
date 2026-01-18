@@ -4,16 +4,23 @@ YAML 转 Go 结构体代码生成工具库
 
 ## 📖 简介
 
-`pkg/yaml2go` 是一个强大的工具库，可以将 YAML 格式的配置自动转换为 Go 结构体代码。特别适合与 Viper、Cobra 等配置管理库配合使用，自动生成兼容多种序列化库的结构体定义。
+`pkg/yaml2go` 是一个**纯转换工具**，可以将 YAML 格式的配置自动转换为 Go 结构体代码。
+
+> [!IMPORTANT]
+> **纯转换，不做文件操作**
+>
+> 本工具只负责代码生成，不包含任何文件写入功能。用户完全控制如何使用生成的代码。
 
 ### 核心特性
 
+- ✅ **配置分离**: 每个顶级配置生成独立的结构体（如 `ServerConfig`、`DatabaseConfig`）
+- ✅ **统一接口**: 每个配置自动实现 `ValidateName()`、`Validate()`、`DefaultConfig()`、`OverrideConfig()`
+- ✅ **环境变量覆盖**: 自动生成环境变量读取和类型转换逻辑
 - ✅ **智能类型推断**: 自动识别 string、int、float、bool、数组、嵌套结构等类型
 - ✅ **多标签支持**: 自动生成 `json`、`yaml`、`mapstructure`（Viper）、`toml` 等标签
-- ✅ **配置驱动**: 支持自定义包名、结构体名、命名风格等
 - ✅ **命名转换**: 自动将 snake_case 转换为 PascalCase
+- ✅ **纯转换工具**: 只返回代码，用户自己决定如何使用
 - ✅ **线程安全**: 所有方法都是并发安全的
-- ✅ **简单易用**: 一行代码完成转换
 
 ## 🚀 快速开始
 
@@ -30,46 +37,58 @@ import (
 
 func main() {
     yamlStr := `
+server:
+  host: localhost
+  port: 8080
+  required: true
+
 database:
   host: localhost
   port: 5432
   username: admin
-server:
-  port: 8080
-  timeout: 30
-  debug: true
 `
 
-    // 创建转换器（使用默认配置）
+    // 创建转换器
     converter := yaml2go.New(nil)
 
-    // 转换 YAML 为 Go 代码
-    code, err := converter.Convert(yamlStr)
+    // 转换 YAML
+    result, err := converter.Convert(yamlStr)
     if err != nil {
         log.Fatal(err)
     }
 
-    fmt.Println(code)
+    // 查看主配置
+    fmt.Println("=== config.go ===")
+    fmt.Println(result.MainConfig.Content)
+
+    // 查看子配置
+    for _, subConfig := range result.SubConfigs {
+        fmt.Printf("\n=== %s ===\n", subConfig.FileName)
+        fmt.Println(subConfig.Content)
+    }
 }
 ```
 
-**输出结果:**
+### 写入文件（用户自己控制）
 
 ```go
-package main
+import (
+    "os"
+    "path/filepath"
+)
 
-// Config 配置结构
-type Config struct {
-    Database struct {
-        Host     string `json:"host" yaml:"host" mapstructure:"host" toml:"host"`
-        Port     int64  `json:"port" yaml:"port" mapstructure:"port" toml:"port"`
-        Username string `json:"username" yaml:"username" mapstructure:"username" toml:"username"`
-    } `json:"database" yaml:"database" mapstructure:"database" toml:"database"`
-    Server struct {
-        Debug   bool  `json:"debug" yaml:"debug" mapstructure:"debug" toml:"debug"`
-        Port    int64 `json:"port" yaml:"port" mapstructure:"port" toml:"port"`
-        Timeout int64 `json:"timeout" yaml:"timeout" mapstructure:"timeout" toml:"timeout"`
-    } `json:"server" yaml:"server" mapstructure:"server" toml:"server"`
+// 用户自己决定如何处理生成的代码
+outputDir := "./internal/config"
+os.MkdirAll(outputDir, 0755)
+
+// 写入主配置
+mainPath := filepath.Join(outputDir, result.MainConfig.FileName)
+os.WriteFile(mainPath, []byte(result.MainConfig.Content), 0644)
+
+// 写入子配置
+for _, subConfig := range result.SubConfigs {
+    subPath := filepath.Join(outputDir, subConfig.FileName)
+    os.WriteFile(subPath, []byte(subConfig.Content), 0644)
 }
 ```
 
@@ -77,24 +96,16 @@ type Config struct {
 
 ```go
 converter := yaml2go.New(&yaml2go.Config{
-    PackageName: "config",           // 包名
-    StructName:  "AppConfig",        // 结构体名
-    Tags:        []string{"json", "yaml", "mapstructure"},  // 自定义标签
-    OmitEmpty:   true,               // 添加 omitempty 选项
-    UsePointer:  false,              // 不使用指针类型
-    AddComments: true,               // 添加字段注释
+    PackageName:     "config",                              // 包名
+    EnvPrefix:       "APP_",                                // 环境变量前缀
+    GenerateMethods: true,                                  // 生成接口方法
+    SplitFiles:      true,                                  // 分离文件（新模式）
+    Tags:            []string{"json", "yaml", "mapstructure"}, // 自定义标签
+    OmitEmpty:       true,                                  // 添加 omitempty 选项
+    AddComments:     true,                                  // 添加字段注释
 })
 
-code, err := converter.Convert(yamlStr)
-```
-
-### 保存到文件
-
-```go
-err := converter.ConvertToFile(yamlStr, "internal/config/models.go")
-if err != nil {
-    log.Fatal(err)
-}
+result, err := converter.Convert(yamlStr)
 ```
 
 ## 📚 API 文档
@@ -103,28 +114,58 @@ if err != nil {
 
 ```go
 type Converter interface {
-    // Convert 转换 YAML 字符串为 Go 结构体代码
-    Convert(yamlStr string) (string, error)
-
-    // ConvertToFile 转换并写入文件
-    ConvertToFile(yamlStr string, outputPath string) error
+    // Convert 转换 YAML 字符串为多个配置代码
+    // 返回 GenerateResult，包含主配置和所有子配置
+    Convert(yamlStr string) (*GenerateResult, error)
 
     // SetConfig 更新配置（支持热更新）
     SetConfig(config *Config) error
 }
 ```
 
+### GenerateResult 结构
+
+```go
+type GenerateResult struct {
+    // MainConfig 主配置文件（config.go）
+    MainConfig *FileContent
+
+    // SubConfigs 子配置文件列表
+    SubConfigs []*FileContent
+
+    // PackageName 包名
+    PackageName string
+}
+
+type FileContent struct {
+    // FileName 文件名（如 "server_config.go"）
+    FileName string
+
+    // Content 文件内容（完整的 Go 代码）
+    Content string
+
+    // ConfigName 配置名称（如 "server"）
+    ConfigName string
+
+    // StructName 结构体名称（如 "ServerConfig"）
+    StructName string
+}
+```
+
 ### Config 配置
 
-| 字段          | 类型     | 默认值                                   | 说明                         |
-| ------------- | -------- | ---------------------------------------- | ---------------------------- |
-| `PackageName` | string   | "main"                                   | 生成代码的包名               |
-| `StructName`  | string   | "Config"                                 | 根结构体名称                 |
-| `Tags`        | []string | ["json", "yaml", "mapstructure", "toml"] | 生成的标签列表               |
-| `UsePointer`  | bool     | false                                    | 字段是否使用指针类型         |
-| `OmitEmpty`   | bool     | false                                    | 是否添加 omitempty 选项      |
-| `IndentStyle` | string   | "tab"                                    | 缩进风格（"tab" 或 "space"） |
-| `AddComments` | bool     | false                                    | 是否添加字段注释             |
+| 字段              | 类型     | 默认值                                   | 说明                         |
+| ----------------- | -------- | ---------------------------------------- | ---------------------------- |
+| `PackageName`     | string   | "main"                                   | 生成代码的包名               |
+| `StructName`      | string   | "Config"                                 | 根结构体名称                 |
+| `Tags`            | []string | ["json", "yaml", "mapstructure", "toml"] | 生成的标签列表               |
+| `UsePointer`      | bool     | false                                    | 字段是否使用指针类型         |
+| `OmitEmpty`       | bool     | false                                    | 是否添加 omitempty 选项      |
+| `IndentStyle`     | string   | "tab"                                    | 缩进风格（"tab" 或 "space"） |
+| `AddComments`     | bool     | false                                    | 是否添加字段注释             |
+| `EnvPrefix`       | string   | ""                                       | 环境变量前缀（如 "APP\_"）   |
+| `GenerateMethods` | bool     | true                                     | 是否生成接口方法             |
+| `SplitFiles`      | bool     | true                                     | 是否分离文件（新模式）       |
 
 ### 构造函数
 

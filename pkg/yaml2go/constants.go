@@ -15,6 +15,9 @@ const (
 
 	// IndentStyleSpace 空格缩进
 	IndentStyleSpace = "space"
+
+	// ConfigBlockFilenameSuffix 配置块文件名后缀
+	ConfigBlockFilenameSuffix = "_config.go"
 )
 
 var (

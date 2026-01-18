@@ -11,7 +11,7 @@ import (
 // BaseModel 包含所有模型的公共字段
 // 通过嵌入此结构体,可以确保所有数据表都有统一的基础字段
 // 这遵循了 DRY(Don't Repeat Yourself)原则
-type BaseModel struct {
+type BaseDBModel struct {
 	// ID 使用 Snowflake 算法生成的分布式唯一 ID
 	// 优点:
 	// - 分布式环境下也能保证唯一性

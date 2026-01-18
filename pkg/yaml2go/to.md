@@ -1,35 +1,4 @@
-### 基本用法
-
-```go
-package main
-
-import (
-    "fmt"
-    "log"
-    "github.com/rei0721/go-scaffold/pkg/yaml2go"
-)
-
-func main() {
-    yamlStr := `
-server:
-  required: ${REI_SERVER_REQUIRED:true}
-  host: ${REI_SERVER_HOST:localhost}
-  port: ${REI_SERVER_PORT:8080}
-`
-
-    // 创建转换器（使用默认配置）
-    // 为所有配置默认创建统一的方法
-    converter := yaml2go.New(nil)
-
-    // 转换 YAML 为 Go 代码
-    code, err := converter.Convert(yamlStr)
-    if err != nil {
-        log.Fatal(err)
-    }
-
-    fmt.Println(code)
-}
-```
+**输出结果:**
 
 ```go
 // config.go
@@ -56,27 +25,46 @@ func (c *ServerConfig) Validate() error {
 	return nil
 }
 
+// DefaultConfig 为开发者生成一个默认的默认值接口
+func (c *ServerConfig) DefaultConfig() *ServerConfig {
+	// yaml文件中的数据可做默认值参考
+	return &ServerConfig{
+		Host: "localhost",
+		Port: 8080,
+		Required: true,
+	}
+}
+
 // OverrideConfig 使用环境变量覆盖配置
-func (cfg *ServerConfig) OverrideConfig() {
+func (cfg *ServerConfig) OverrideConfig(prefix string) {
 	// Host
-	if val := os.Getenv("REI_SERVER_HOST"); val != "" {
-		if host, err := strconv.Atoi(val); err == nil {
-			cfg.Host = host
-		}
+	if val := os.Getenv(prefix + "SERVER_HOST"); val != "" {
+		cfg.Host = val
 	}
 
 	// Port
-	if val := os.Getenv("REI_SERVER_PORT"); val != "" {
-        if port, err := strconv.Atoi(val); err == nil {
-            cfg.Port = port
-        }
+	if val := os.Getenv(prefix + "SERVER_PORT"); val != "" {
+		if port, err := strconv.Atoi(val); err == nil {
+			cfg.Port = int64(port)
+		}
 	}
 
 	// Required
-	if val := os.Getenv("REI_SERVER_REQUIRED"); val != "" {
+	if val := os.Getenv(prefix + "SERVER_REQUIRED"); val != "" {
 		if required, err := strconv.ParseBool(val); err == nil {
 			cfg.Required = required
 		}
 	}
 }
+```
+
+**使用示例:**
+
+```go
+// 不使用前缀
+cfg := &ServerConfig{}
+cfg.OverrideConfig("") // 环境变量: SERVER_HOST, SERVER_PORT, SERVER_REQUIRED
+
+// 使用前缀
+cfg.OverrideConfig("APP_") // 环境变量: APP_SERVER_HOST, APP_SERVER_PORT, APP_SERVER_REQUIRED
 ```

@@ -1,11 +1,11 @@
 package models
 
-// User 表示系统中的用户实体
+// DBUser 表示系统中的用户实体
 // 它嵌入了 BaseModel 以继承公共字段,并添加了用户特定的字段
-type User struct {
+type DBUser struct {
 	// 嵌入 BaseModel,继承 ID、CreatedAt、UpdatedAt、DeletedAt 字段
 	// 这是 Go 语言的组合模式,比继承更灵活
-	BaseModel
+	BaseDBModel
 
 	// Username 用户名
 	// gorm:"uniqueIndex" 创建唯一索引,确保用户名不重复
@@ -44,6 +44,6 @@ type User struct {
 // - 表名更清晰,符合数据库命名规范
 // - 避免不同数据库方言的命名差异
 // - 便于与现有数据库集成
-func (User) TableName() string {
+func (DBUser) TableName() string {
 	return "users"
 }

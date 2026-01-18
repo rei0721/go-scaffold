@@ -42,7 +42,7 @@ func runInitDB(app *App) error {
 
 	// 收集所有模型的建表语句
 	allModels := []interface{}{
-		&models.User{},
+		&models.DBUser{},
 	}
 
 	var sqlStatements []string
