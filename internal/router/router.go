@@ -9,6 +9,7 @@ import (
 	"github.com/rei0721/go-scaffold/internal/middleware"
 	"github.com/rei0721/go-scaffold/pkg/jwt"
 	"github.com/rei0721/go-scaffold/pkg/logger"
+	"github.com/rei0721/go-scaffold/types/constants"
 	"github.com/rei0721/go-scaffold/types/result"
 )
 
@@ -26,7 +27,7 @@ type Router struct {
 	// userHandler 用户相关的请求处理器
 	// 包含注册、登录、查询等处理方法
 	// 通过接口注入,便于测试和替换实现
-	userHandler *handler.UserHandler
+	authHandler *handler.AuthHandler
 
 	// logger 日志记录器
 	// 用于记录路由相关的日志
@@ -37,10 +38,6 @@ type Router struct {
 	// 用于认证中间件验证token
 	// 如果为nil,则不启用认证保护
 	jwt jwt.JWT
-}
-
-type Handles struct {
-	UserHandler *handler.UserHandler
 }
 
 // New 创建一个新的 Router 实例
@@ -60,9 +57,9 @@ type Handles struct {
 // 使用场景:
 //
 //	在应用初始化时创建,然后调用 Setup() 配置路由
-func New(userHandler *handler.UserHandler, log logger.Logger, jwtManager jwt.JWT) *Router {
+func New(authHandler *handler.AuthHandler, log logger.Logger, jwtManager jwt.JWT) *Router {
 	return &Router{
-		userHandler: userHandler,
+		authHandler: authHandler,
 		logger:      log,
 		jwt:         jwtManager,
 	}
@@ -148,59 +145,8 @@ func (r *Router) registerRoutes() {
 		// 这些路由不需要认证即可访问
 
 		// 认证相关路由组
-		auth := v1.Group("/auth")
+		v1.Group("/auth")
 		{
-			// POST /api/v1/auth/register - 用户注册
-			// 创建新用户账户
-			auth.POST("/register", r.userHandler.Register)
-
-			// POST /api/v1/auth/login - 用户登录
-			// 验证用户凭证并返回 token
-			auth.POST("/login", r.userHandler.Login)
-		}
-
-		// ==================== 受保护路由 ====================
-		// 这些路由需要JWT认证才能访问
-
-		// 用户相关路由组(需要认证)
-		users := v1.Group("/users")
-
-		// 如果JWT管理器存在,应用认证中间件
-		if r.jwt != nil {
-			users.Use(middleware.AuthMiddleware(r.jwt))
-		}
-
-		{
-			// GET /api/v1/users/:id - 获取指定用户
-			// :id 是路径参数,例如 /api/v1/users/123
-			// RESTful 风格:使用 GET + ID 获取单个资源
-			users.GET("/:id", r.userHandler.GetUser)
-
-			// GET /api/v1/users - 获取用户列表(分页)
-			// 查询参数: ?page=1&pageSize=10
-			// RESTful 风格:使用 GET 获取资源集合
-			users.GET("", r.userHandler.ListUsers)
-
-			// PUT /api/v1/users/:id - 更新指定用户
-			// :id 是路径参数,例如 /api/v1/users/123
-			// RESTful 风格:使用 PUT + ID 更新单个资源
-			users.PUT("/:id", r.userHandler.UpdateUser)
-
-			// DELETE /api/v1/users/:id - 删除指定用户(软删除)
-			// :id 是路径参数,例如 /api/v1/users/123
-			// RESTful 风格:使用 DELETE + ID 删除单个资源
-			users.DELETE("/:id", r.userHandler.DeleteUser)
-		}
-
-		// 未来可以在这里添加更多资源组:
-		// products := v1.Group("/products") { ... }
-		// orders := v1.Group("/orders") { ... }
-
-		// RBAC 管理路由 (需要认证和权限)
-		if r.jwt != nil {
-			// 角色管理 - 需要 manage Roles 权限
-			roles := v1.Group("/roles")
-			roles.Use(middleware.AuthMiddleware(r.jwt))
 
 		}
 
@@ -227,10 +173,8 @@ func (r *Router) healthCheck(c *gin.Context) {
 	// 使用 result.Success 保持响应格式一致
 	// gin.H 是 map[string]interface{} 的简写
 	c.JSON(http.StatusOK, result.Success(gin.H{
-		"status": "ok",
-		// 未来可以添加更多信息:
-		// "version": "1.0.0",
-		// "uptime": calculateUptime(),
+		"status":  "ok",
+		"version": constants.AppVersion,
 	}))
 }
 

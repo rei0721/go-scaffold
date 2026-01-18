@@ -10,7 +10,7 @@ import (
 type AppCommand struct{}
 
 func (c *AppCommand) Name() string {
-	return AppCommandName
+	return constants.AppServerCommandName
 }
 
 func (c *AppCommand) Description() string {
@@ -18,7 +18,7 @@ func (c *AppCommand) Description() string {
 }
 
 func (c *AppCommand) Usage() string {
-	return fmt.Sprintf("%s [--config=<name>]", AppCommandName)
+	return fmt.Sprintf("%s [--config=<name>]", constants.AppServerCommandName)
 }
 
 func (c *AppCommand) Flags() []cli.Flag {
@@ -28,7 +28,7 @@ func (c *AppCommand) Flags() []cli.Flag {
 			ShortName:   "c",
 			Type:        cli.FlagTypeString,
 			Required:    false,
-			Default:     constants.DefaultConfigPath,
+			Default:     constants.AppDefaultConfigPath,
 			Description: "Config file path",
 			EnvVar:      "REI_CONFIG_PATH", // 支持环境变量
 		},

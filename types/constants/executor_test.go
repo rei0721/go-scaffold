@@ -13,11 +13,11 @@ func TestPoolNameConstants(t *testing.T) {
 		constant executor.PoolName
 		expected string
 	}{
-		{"PoolHTTP", PoolHTTP, "http"},
-		{"PoolDatabase", PoolDatabase, "database"},
-		{"PoolCache", PoolCache, "cache"},
-		{"PoolLogger", PoolLogger, "logger"},
-		{"PoolBackground", PoolBackground, "background"},
+		{"AppPoolHTTP", AppPoolHTTP, "http"},
+		{"AppPoolDatabase", AppPoolDatabase, "database"},
+		{"AppPoolCache", AppPoolCache, "cache"},
+		{"AppPoolLogger", AppPoolLogger, "logger"},
+		{"AppPoolBackground", AppPoolBackground, "background"},
 	}
 
 	for _, tt := range tests {
@@ -36,11 +36,11 @@ func TestPoolNameConstants(t *testing.T) {
 // TestPoolNameUniqueness 验证池名常量的唯一性
 func TestPoolNameUniqueness(t *testing.T) {
 	pools := []executor.PoolName{
-		PoolHTTP,
-		PoolDatabase,
-		PoolCache,
-		PoolLogger,
-		PoolBackground,
+		AppPoolHTTP,
+		AppPoolDatabase,
+		AppPoolCache,
+		AppPoolLogger,
+		AppPoolBackground,
 	}
 
 	seen := make(map[string]bool)

@@ -533,7 +533,7 @@ func (l *zapLogger) Sync() error {
 
 	// 如果有executor，异步执行Sync
 	if exec := l.getExecutor(); exec != nil {
-		_ = exec.Execute(constants.PoolLogger, func() {
+		_ = exec.Execute(constants.AppPoolLogger, func() {
 			if err := sugar.Sync(); err != nil {
 				// 异步模式下，错误输出到stderr避免递归
 				fmt.Fprintf(os.Stderr, "logger sync error: %v\n", err)

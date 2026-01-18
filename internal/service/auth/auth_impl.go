@@ -118,7 +118,7 @@ func (s *authService) Register(ctx context.Context, req *types.RegisterRequest) 
 	if c := s.GetCache(); c != nil {
 		if exec := s.GetExecutor(); exec != nil {
 			userCopy := *user
-			_ = exec.Execute(constants.PoolCache, func() {
+			_ = exec.Execute(constants.AppPoolCache, func() {
 				key := fmt.Sprintf("user:%d", userCopy.ID)
 				if data, err := json.Marshal(userCopy); err == nil {
 					_ = c.Set(context.Background(), key, string(data), 1*time.Hour)
@@ -204,7 +204,7 @@ func (s *authService) Login(ctx context.Context, req *types.LoginRequest) (*type
 	if exec := s.GetExecutor(); exec != nil {
 		userID := user.ID
 		username := user.Username
-		_ = exec.Execute(constants.PoolBackground, func() {
+		_ = exec.Execute(constants.AppPoolBackground, func() {
 			// 这里可以实现：
 			// - 记录登录日志（时间、IP、设备等）
 			// - 更新最后登录时间
@@ -220,7 +220,7 @@ func (s *authService) Login(ctx context.Context, req *types.LoginRequest) (*type
 	if c := s.GetCache(); c != nil {
 		if exec := s.GetExecutor(); exec != nil {
 			userCopy := *user
-			_ = exec.Execute(constants.PoolCache, func() {
+			_ = exec.Execute(constants.AppPoolCache, func() {
 				key := fmt.Sprintf("user:%d", userCopy.ID)
 				if data, err := json.Marshal(userCopy); err == nil {
 					_ = c.Set(context.Background(), key, string(data), 1*time.Hour)
@@ -257,7 +257,7 @@ func (s *authService) Login(ctx context.Context, req *types.LoginRequest) (*type
 		if exec := s.GetExecutor(); exec != nil {
 			userID := user.ID
 			tokenCopy := token
-			_ = exec.Execute(constants.PoolCache, func() {
+			_ = exec.Execute(constants.AppPoolCache, func() {
 				key := fmt.Sprintf("%s%d", CacheKeyPrefixAuthToken, userID)
 				_ = c.Set(context.Background(), key, tokenCopy, time.Duration(expiresIn)*time.Second)
 			})
@@ -280,7 +280,7 @@ func (s *authService) Logout(ctx context.Context, userID int64) error {
 		tokenKey := fmt.Sprintf("%s%d", CacheKeyPrefixAuthToken, userID)
 
 		if exec := s.GetExecutor(); exec != nil {
-			_ = exec.Execute(constants.PoolCache, func() {
+			_ = exec.Execute(constants.AppPoolCache, func() {
 				_ = c.Delete(context.Background(), userKey, tokenKey)
 			})
 		} else {
@@ -335,7 +335,7 @@ func (s *authService) ChangePassword(ctx context.Context, userID int64, req *typ
 		tokenKey := fmt.Sprintf("%s%d", CacheKeyPrefixAuthToken, userID)
 
 		if exec := s.GetExecutor(); exec != nil {
-			_ = exec.Execute(constants.PoolCache, func() {
+			_ = exec.Execute(constants.AppPoolCache, func() {
 				_ = c.Delete(context.Background(), userKey, tokenKey)
 			})
 		}

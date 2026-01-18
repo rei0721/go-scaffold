@@ -91,6 +91,35 @@ func (c *ServerConfig) Validate() error {
 }
 
 // overrideServerConfig 使用环境变量覆盖服务器配置
+func (cfg *ServerConfig) overrideServerConfig() {
+	// Port
+	if val := os.Getenv(EnvServerPort); val != "" {
+		if port, err := strconv.Atoi(val); err == nil {
+			cfg.Port = port
+		}
+	}
+
+	// Mode
+	if val := os.Getenv(EnvServerMode); val != "" {
+		cfg.Mode = val
+	}
+
+	// ReadTimeout
+	if val := os.Getenv(EnvServerReadTimeout); val != "" {
+		if timeout, err := strconv.Atoi(val); err == nil {
+			cfg.ReadTimeout = timeout
+		}
+	}
+
+	// WriteTimeout
+	if val := os.Getenv(EnvServerWriteTimeout); val != "" {
+		if timeout, err := strconv.Atoi(val); err == nil {
+			cfg.WriteTimeout = timeout
+		}
+	}
+}
+
+// overrideServerConfig 使用环境变量覆盖服务器配置
 func overrideServerConfig(cfg *ServerConfig) {
 	// Port
 	if val := os.Getenv(EnvServerPort); val != "" {

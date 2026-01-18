@@ -2,33 +2,30 @@ package app
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/rei0721/go-scaffold/internal/handler"
+
 	"github.com/rei0721/go-scaffold/internal/middleware"
-	"github.com/rei0721/go-scaffold/internal/repository"
 	"github.com/rei0721/go-scaffold/internal/router"
 	"github.com/rei0721/go-scaffold/internal/service"
-	"github.com/rei0721/go-scaffold/internal/service/auth"
 	"github.com/rei0721/go-scaffold/pkg/dbtx"
 )
 
 func (app *App) initBusiness() error {
 	// 初始化 repository layer
-	authRepo := repository.NewAuthRepository(app.DB.DB())
+	// authRepo := repository.NewAuthRepository(app.DB.DB())
 
 	// 初始化 auth service
-	authService := auth.NewAuthService(authRepo)
+	// authService := auth.NewAuthService(authRepo)
 
 	// 注入 app 到 Service 层
-	if _, err := app.setServiceAll(authService); err != nil {
-		return err
-	}
+	// if _, err := app.setServiceAll(authService); err != nil {
+	// 	return err
+	// }
 
 	// 初始化 handler layer
-	userHandler := handler.NewUserHandler(userService)
-	authHandler := handler.NewAuthHandler(authService)
+	// ...
 
-	// 初始化 router（传入JWT用于认证中间件）
-	r := router.New(userHandler, app.Logger, app.JWT)
+	// 初始化 router
+	r := router.New(nil, app.Logger, app.JWT)
 
 	// Set Gin mode based on config
 	if app.Config.Server.Mode == "release" {

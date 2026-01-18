@@ -66,7 +66,7 @@ func runApp(configPath string) {
 	// 上下文用于控制优雅关闭的最大等待时间
 	// 如果超过 shutdownTimeout(30秒)仍未完成关闭,将强制退出
 	// 这防止了因某些请求或连接无法正常关闭导致的程序挂起
-	ctx, cancel := context.WithTimeout(context.Background(), constants.ShutdownTimeout)
+	ctx, cancel := context.WithTimeout(context.Background(), constants.AppShutdownTimeout)
 	// defer 确保在函数返回时调用 cancel,释放上下文相关资源
 	// 这是 Go 中管理资源的最佳实践
 	defer cancel()

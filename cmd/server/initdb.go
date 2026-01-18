@@ -13,7 +13,7 @@ import (
 type InitdbCommand struct{}
 
 func (c *InitdbCommand) Name() string {
-	return InitdbCommandName
+	return constants.AppInitDBCommandName
 }
 
 func (c *InitdbCommand) Description() string {
@@ -21,7 +21,7 @@ func (c *InitdbCommand) Description() string {
 }
 
 func (c *InitdbCommand) Usage() string {
-	return fmt.Sprintf("%s [--config=<path>]", InitdbCommandName)
+	return fmt.Sprintf("%s [--config=<path>]", constants.AppInitDBCommandName)
 }
 
 func (c *InitdbCommand) Flags() []cli.Flag {
@@ -31,7 +31,7 @@ func (c *InitdbCommand) Flags() []cli.Flag {
 			ShortName:   "c",
 			Type:        cli.FlagTypeString,
 			Required:    false,
-			Default:     constants.DefaultConfigPath,
+			Default:     constants.AppDefaultConfigPath,
 			Description: "Config file path",
 			EnvVar:      "REI_CONFIG_PATH",
 		},
