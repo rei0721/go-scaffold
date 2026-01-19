@@ -209,7 +209,7 @@ rbac:
 
   # 表前缀
   # 用于区分不同数据库的表
-  table_prefix: "rbac_"
+  table_prefix: ""
 
 storage:
   # 是否启用文件服务

@@ -21,5 +21,6 @@ func (a *App) initRBAC() error {
 	if err != nil {
 		return fmt.Errorf("failed to init rbac: %w", err)
 	}
+
 	return nil
 }

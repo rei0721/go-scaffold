@@ -26,7 +26,8 @@ func main() {
 	}
 	defer r.Close()
 
-	fmt.Println("=== RBAC基本示例 ===\n")
+	fmt.Println("=== RBAC基本示例 ===")
+	fmt.Println()
 
 	// 3. 定义策略（角色权限）
 	fmt.Println("1. 添加策略：")
@@ -58,14 +59,16 @@ func main() {
 	testEnforce(r, "charlie", "posts", "write") // false
 
 	// 6. 角色继承示例
-	fmt.Println("\n=== 角色继承示例 ===\n")
+	fmt.Println("\n=== 角色继承示例 ===")
+	fmt.Println()
 	r.AddRoleForUser("super_admin", "admin") // super_admin继承admin
 	r.AddRoleForUser("alice", "super_admin")
 	fmt.Println("alice被分配为super_admin（继承admin）")
 	testEnforce(r, "alice", "users", "write") // true（继承自admin）
 
 	// 7. 多租户（域）示例
-	fmt.Println("\n=== 多租户（域）示例 ===\n")
+	fmt.Println("\n=== 多租户（域）示例 ===")
+	fmt.Println()
 	r.AddRoleForUserInDomain("alice", "admin", "tenant1")
 	r.AddRoleForUserInDomain("bob", "admin", "tenant2")
 	r.AddPolicyWithDomain("admin", "tenant1", "data", "read")
@@ -81,7 +84,8 @@ func main() {
 	fmt.Printf("alice能访问tenant2的data吗？%v\n", ok) // false
 
 	// 8. 批量操作示例
-	fmt.Println("\n=== 批量操作示例 ===\n")
+	fmt.Println("\n=== 批量操作示例 ===")
+	fmt.Println()
 	rules := [][]string{
 		{"manager", "reports", "read"},
 		{"manager", "reports", "write"},
@@ -91,7 +95,8 @@ func main() {
 	fmt.Println("批量添加了3条策略给manager角色")
 
 	// 9. 查询示例
-	fmt.Println("\n=== 查询示例 ===\n")
+	fmt.Println("\n=== 查询示例 ===")
+	fmt.Println()
 	roles, _ := r.GetRolesForUser("alice")
 	fmt.Printf("alice的角色：%v\n", roles)
 

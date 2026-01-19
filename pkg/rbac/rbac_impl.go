@@ -57,7 +57,15 @@ func New(cfg *Config) (RBAC, error) {
 	}
 
 	// 创建Gorm Adapter
-	adapter, err := gormadapter.NewAdapterByDBWithCustomTable(cfg.DB, cfg.TablePrefix, DefaultTableName)
+	var (
+		adapter *gormadapter.Adapter
+		err     error
+	)
+	if cfg.TablePrefix != "" {
+		adapter, err = gormadapter.NewAdapterByDBUseTableName(cfg.DB, cfg.TablePrefix, DefaultTableName)
+	} else {
+		adapter, err = gormadapter.NewAdapterByDB(cfg.DB)
+	}
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gorm adapter: %w", err)
 	}
@@ -239,7 +247,9 @@ func (r *rbacImpl) AddPolicyWithDomain(sub, domain, obj, act string) error {
 
 	// 清除缓存
 	if r.config.EnableCache {
-		r.ClearCache()
+		if err := r.ClearCache(); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -263,7 +273,9 @@ func (r *rbacImpl) RemovePolicyWithDomain(sub, domain, obj, act string) error {
 
 	// 清除缓存
 	if r.config.EnableCache {
-		r.ClearCache()
+		if err := r.ClearCache(); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -302,7 +314,9 @@ func (r *rbacImpl) AddPolicies(rules [][]string) error {
 
 	// 清除缓存
 	if r.config.EnableCache {
-		r.ClearCache()
+		if err := r.ClearCache(); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -321,7 +335,9 @@ func (r *rbacImpl) RemovePolicies(rules [][]string) error {
 
 	// 清除缓存
 	if r.config.EnableCache {
-		r.ClearCache()
+		if err := r.ClearCache(); err != nil {
+			return err
+		}
 	}
 
 	return nil
@@ -341,7 +357,9 @@ func (r *rbacImpl) LoadPolicy() error {
 
 	// 清除缓存
 	if r.config.EnableCache {
-		r.ClearCache()
+		if err := r.ClearCache(); err != nil {
+			return err
+		}
 	}
 
 	return nil

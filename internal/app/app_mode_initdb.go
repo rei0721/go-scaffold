@@ -30,6 +30,15 @@ func (app *App) runModeInitDB() (*App, error) {
 		app.Logger.Debug(app.UI18n("internal.app.logger_debug_executor_injected"))
 	}
 
+	// 如果启用了 RBAC，初始化 RBAC 以自动创建 casbin_rule 表
+	// gorm-adapter 会在 New() 时自动创建表
+	if app.Config.RBAC.Enabled {
+		if err := app.initRBAC(); err != nil {
+			return nil, err
+		}
+		app.Logger.Info("RBAC initialized, casbin_rule table created")
+	}
+
 	// 初始化业务逻辑(包括 Router)
 	if err := app.initBusiness(); err != nil {
 		return nil, err
