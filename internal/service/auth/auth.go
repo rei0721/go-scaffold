@@ -18,6 +18,7 @@ import (
 	"github.com/rei0721/go-scaffold/pkg/cache"
 	"github.com/rei0721/go-scaffold/pkg/crypto"
 	"github.com/rei0721/go-scaffold/pkg/database"
+	"github.com/rei0721/go-scaffold/pkg/dbtx"
 	"github.com/rei0721/go-scaffold/pkg/executor"
 	"github.com/rei0721/go-scaffold/pkg/jwt"
 	"github.com/rei0721/go-scaffold/pkg/logger"
@@ -66,4 +67,7 @@ type AuthService interface {
 
 	// SetCrypto 设置密码加密器（延迟注入）
 	SetCrypto(c crypto.Crypto)
+
+	// SetTxManager 设置事务管理器（延迟注入）
+	SetTxManager(txMgr dbtx.Manager)
 }

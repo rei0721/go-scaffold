@@ -45,11 +45,13 @@ curl -H "Authorization: Bearer YOUR_TOKEN" \
 
 ### 认证相关
 
-| 方法 | 路径                  | 说明     | 文档链接                                           |
-| ---- | --------------------- | -------- | -------------------------------------------------- |
-| POST | /api/v1/auth/register | 用户注册 | [详情](./endpoints/auth.md#post-apiv1authregister) |
-| POST | /api/v1/auth/login    | 用户登录 | [详情](./endpoints/auth.md#post-apiv1authlogin)    |
-| POST | /api/v1/auth/logout   | 用户登出 | [详情](./endpoints/auth.md#post-apiv1authlogout)   |
+| 方法 | 路径                         | 说明     | 文档链接                                                  |
+| ---- | ---------------------------- | -------- | --------------------------------------------------------- |
+| POST | /api/v1/auth/register        | 用户注册 | [详情](./endpoints/auth.md#post-apiv1authregister)        |
+| POST | /api/v1/auth/login           | 用户登录 | [详情](./endpoints/auth.md#post-apiv1authlogin)           |
+| POST | /api/v1/auth/logout          | 用户登出 | [详情](./endpoints/auth.md#post-apiv1authlogout)          |
+| POST | /api/v1/auth/change-password | 修改密码 | [详情](./endpoints/auth.md#post-apiv1authchange-password) |
+| POST | /api/v1/auth/refresh         | 刷新令牌 | [详情](./endpoints/auth.md#post-apiv1authrefresh)         |
 
 ### RBAC 权限管理
 

@@ -155,9 +155,38 @@ func (r *Router) registerRoutes() {
 		// 这些路由不需要认证即可访问
 
 		// 认证相关路由组
-		v1.Group("/auth")
+		// 公开接口：注册和登录不需要认证
+		authGroup := v1.Group("/auth")
 		{
+			// POST /api/v1/auth/register - 用户注册
+			// 任何人都可以注册账号
+			authGroup.POST("/register", r.authHandler.Register)
 
+			// POST /api/v1/auth/login - 用户登录
+			// 使用用户名和密码登录获取 token
+			authGroup.POST("/login", r.authHandler.Login)
+		}
+
+		// 需要认证的认证路由
+		// 这些接口需要提供有效的 JWT token
+		authProtected := v1.Group("/auth")
+		authProtected.Use(middleware.AuthMiddleware(r.jwt))
+		{
+			// POST /api/v1/auth/logout - 用户登出
+			// 需要认证后才能登出
+			authProtected.POST("/logout", r.authHandler.Logout)
+
+			// POST /api/v1/auth/change-password - 修改密码
+			// 需要认证，用户修改自己的密码
+			authProtected.POST("/change-password", r.authHandler.ChangePassword)
+		}
+
+		// Token 刷新路由（公开，但需要有效的 refresh token）
+		refreshGroup := v1.Group("/auth")
+		{
+			// POST /api/v1/auth/refresh - 刷新访问令牌
+			// 使用 refresh token 获取新的 access token
+			refreshGroup.POST("/refresh", r.authHandler.RefreshToken)
 		}
 
 		// ==================== 受保护路由 ====================
