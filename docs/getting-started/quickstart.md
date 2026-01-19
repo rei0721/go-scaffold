@@ -19,10 +19,10 @@ cp configs/config.example.yaml configs/config.yaml
 cp .env.example .env
 
 # 初始化数据库（使用 SQLite，无需额外配置）
-go run cmd/server/main.go initdb
+go run ./cmd/server/ initdb
 
 # 启动服务
-go run cmd/server/main.go server
+go run ./cmd/server/ server
 ```
 
 ### 2. 验证服务启动
@@ -33,6 +33,7 @@ curl http://localhost:8080/health
 ```
 
 预期响应：
+
 ```json
 {
   "status": "ok",
@@ -60,6 +61,7 @@ curl -X POST http://localhost:8080/api/v1/auth/register \
 ```
 
 预期响应：
+
 ```json
 {
   "code": 200,
@@ -84,6 +86,7 @@ curl -X POST http://localhost:8080/api/v1/auth/login \
 ```
 
 预期响应：
+
 ```json
 {
   "code": 200,
@@ -121,6 +124,7 @@ curl -X GET http://localhost:8080/api/v1/health \
 ```
 
 预期响应：
+
 ```json
 {
   "status": "正常",
@@ -137,6 +141,7 @@ curl -X GET http://localhost:8080/api/v1/health \
 ```
 
 预期响应：
+
 ```json
 {
   "status": "ok",
@@ -160,6 +165,7 @@ curl -X POST http://localhost:8080/api/v1/auth/register \
 ```
 
 预期响应：
+
 ```json
 {
   "code": 400,
@@ -189,6 +195,7 @@ curl -X GET http://localhost:8080/api/v1/user/profile \
 ```
 
 预期响应：
+
 ```json
 {
   "code": 401,
@@ -241,7 +248,7 @@ cache:
 ```yaml
 server:
   host: "0.0.0.0"
-  port: 9000  # 修改为其他端口
+  port: 9000 # 修改为其他端口
 ```
 
 重启服务后，访问 `http://localhost:9000`
@@ -271,7 +278,7 @@ app:
 
 logger:
   level: "debug"
-  format: "console"  # 更易读的日志格式
+  format: "console" # 更易读的日志格式
 ```
 
 ### 3. 查看详细日志

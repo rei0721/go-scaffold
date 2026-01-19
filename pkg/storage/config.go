@@ -23,7 +23,7 @@ type Config struct {
 
 // ValidateName 返回配置名称
 func (c *Config) ValidateName() string {
-	return "fileservice"
+	return "storage"
 }
 
 // Validate 验证配置有效性
@@ -59,25 +59,25 @@ func (c *Config) DefaultConfig() {
 
 // OverrideConfig 从环境变量覆盖配置
 func (c *Config) OverrideConfig() {
-	// FILESERVICE_FS_TYPE
-	if fsType := os.Getenv("FILESERVICE_FS_TYPE"); fsType != "" {
+	// STORAGE_FS_TYPE
+	if fsType := os.Getenv("STORAGE_FS_TYPE"); fsType != "" {
 		c.FSType = FSType(fsType)
 	}
 
-	// FILESERVICE_BASE_PATH
-	if basePath := os.Getenv("FILESERVICE_BASE_PATH"); basePath != "" {
+	// STORAGE_BASE_PATH
+	if basePath := os.Getenv("STORAGE_BASE_PATH"); basePath != "" {
 		c.BasePath = basePath
 	}
 
-	// FILESERVICE_ENABLE_WATCH
-	if enableWatch := os.Getenv("FILESERVICE_ENABLE_WATCH"); enableWatch != "" {
+	// STORAGE_ENABLE_WATCH
+	if enableWatch := os.Getenv("STORAGE_ENABLE_WATCH"); enableWatch != "" {
 		if val, err := strconv.ParseBool(enableWatch); err == nil {
 			c.EnableWatch = val
 		}
 	}
 
-	// FILESERVICE_WATCH_BUFFER_SIZE
-	if bufferSize := os.Getenv("FILESERVICE_WATCH_BUFFER_SIZE"); bufferSize != "" {
+	// STORAGE_WATCH_BUFFER_SIZE
+	if bufferSize := os.Getenv("STORAGE_WATCH_BUFFER_SIZE"); bufferSize != "" {
 		if val, err := strconv.Atoi(bufferSize); err == nil {
 			c.WatchBufferSize = val
 		}

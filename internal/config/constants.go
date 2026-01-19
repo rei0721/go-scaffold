@@ -193,4 +193,5 @@ const (
 	AppJWTName      = "jwt"
 	AppInitDBName   = "initdb"
 	AppRBACName     = "rbac"
+	AppStorageName  = "storage"
 )

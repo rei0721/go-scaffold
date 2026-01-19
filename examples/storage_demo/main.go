@@ -53,7 +53,7 @@ func main() {
 }
 
 // 测试基础文件操作
-func testBasicFileOps(fs storage.FileService) {
+func testBasicFileOps(fs storage.Storage) {
 	// 写入文件
 	err := fs.WriteFile("test_demo.txt", []byte("Hello, FileService!"), 0644)
 	if err != nil {
@@ -83,7 +83,7 @@ func testBasicFileOps(fs storage.FileService) {
 }
 
 // 测试MIME检测
-func testMIMEDetection(fs storage.FileService) {
+func testMIMEDetection(fs storage.Storage) {
 	// 从字节检测
 	mimeType, err := fs.DetectMIMEFromBytes([]byte("Hello, World!"))
 	if err != nil {
@@ -108,7 +108,7 @@ func testMIMEDetection(fs storage.FileService) {
 }
 
 // 测试文件复制
-func testFileCopy(fs storage.FileService) {
+func testFileCopy(fs storage.Storage) {
 	// 创建源文件
 	fs.WriteFile("source_demo.txt", []byte("Source Content"), 0644)
 
@@ -130,7 +130,7 @@ func testFileCopy(fs storage.FileService) {
 }
 
 // 测试Excel操作
-func testExcelOps(fs storage.FileService) {
+func testExcelOps(fs storage.Storage) {
 	// 创建Excel文件
 	file := fs.CreateExcel()
 
@@ -168,7 +168,7 @@ func testExcelOps(fs storage.FileService) {
 }
 
 // 测试图片操作
-func testImageOps(fs storage.FileService) {
+func testImageOps(fs storage.Storage) {
 	// 创建一个简单的测试图片 (纯色)
 	img := imaging.New(200, 100, color.White)
 
@@ -204,7 +204,7 @@ func testImageOps(fs storage.FileService) {
 }
 
 // 测试文件监听
-func testFileWatch(fs storage.FileService) {
+func testFileWatch(fs storage.Storage) {
 	fmt.Println("  ℹ 文件监听功能需要实际运行环境测试")
 	fmt.Println("  示例代码:")
 	fmt.Println("    err := fs.Watch(\"./watch_dir\", func(event storage.WatchEvent) {")

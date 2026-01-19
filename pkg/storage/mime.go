@@ -15,7 +15,7 @@ func (i *impl) DetectMIME(path string) (string, error) {
 	// 读取文件内容
 	data, err := afero.ReadFile(i.fs, path)
 	if err != nil {
-		return "", fmt.Errorf("fileservice: failed to read file for MIME detection: %w", err)
+		return "", fmt.Errorf("Storage: failed to read file for MIME detection: %w", err)
 	}
 
 	// 检测MIME类型

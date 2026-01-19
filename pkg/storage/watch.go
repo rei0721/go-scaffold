@@ -16,7 +16,7 @@ func (i *impl) Watch(path string, handler WatchHandler) error {
 
 	// 检查是否启用监听功能
 	if i.watcher == nil {
-		return fmt.Errorf("fileservice: watch is not enabled")
+		return fmt.Errorf("Storage: watch is not enabled")
 	}
 
 	// 检查路径是否已被监听
@@ -27,7 +27,7 @@ func (i *impl) Watch(path string, handler WatchHandler) error {
 	// 检查路径是否存在
 	exists, err := afero.Exists(i.fs, path)
 	if err != nil {
-		return fmt.Errorf("fileservice: failed to check path: %w", err)
+		return fmt.Errorf("Storage: failed to check path: %w", err)
 	}
 	if !exists {
 		return fmt.Errorf("%w: %s", ErrPathNotFound, path)
@@ -35,7 +35,7 @@ func (i *impl) Watch(path string, handler WatchHandler) error {
 
 	// 添加到 watcher
 	if err := i.watcher.Add(path); err != nil {
-		return fmt.Errorf("fileservice: failed to add watcher: %w", err)
+		return fmt.Errorf("Storage: failed to add watcher: %w", err)
 	}
 
 	// 创建取消上下文
@@ -146,7 +146,7 @@ func (i *impl) StopWatch(path string) error {
 
 	// 从 watcher 中移除
 	if err := i.watcher.Remove(path); err != nil {
-		return fmt.Errorf("fileservice: failed to remove watcher: %w", err)
+		return fmt.Errorf("Storage: failed to remove watcher: %w", err)
 	}
 
 	// 从 map 中删除

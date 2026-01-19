@@ -11,7 +11,7 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
-// FileService 定义文件服务的接口
+// Storage 定义文件服务的接口
 // 提供统一的文件操作API,集成多个开源库提供强大的文件处理能力
 //
 // 设计目标:
@@ -22,11 +22,11 @@ import (
 //
 // 使用示例:
 //
-//	cfg := &fileservice.Config{
-//	    FSType: fileservice.FSTypeOS,
+//	cfg := &Storage.Config{
+//	    FSType: Storage.FSTypeOS,
 //	    BasePath: "./data",
 //	}
-//	fs, err := fileservice.New(cfg)
+//	fs, err := Storage.New(cfg)
 //	if err != nil {
 //	    log.Fatal(err)
 //	}
@@ -35,7 +35,7 @@ import (
 //	// 读写文件
 //	err = fs.WriteFile("test.txt", []byte("hello"), 0644)
 //	data, err := fs.ReadFile("test.txt")
-type FileService interface {
+type Storage interface {
 	// ===== 基础文件系统操作 (基于 afero) =====
 
 	// FileSystem 返回底层的 afero 文件系统实例

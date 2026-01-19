@@ -76,7 +76,7 @@
 //
 // # 接口设计
 //
-//   - FileService: 主接口,提供所有文件操作方法
+//   - Storage: 主接口,提供所有文件操作方法
 //   - WatchHandler: 文件监听事件处理函数
 //   - CopyOption: 文件复制选项接口
 //

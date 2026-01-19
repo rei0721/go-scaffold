@@ -64,6 +64,10 @@ type Config struct {
 
 	// RBAC RBAC配置
 	RBAC RBACConfig `mapstructure:"rbac"`
+
+	// Storage 文件服务配置
+	// 提供统一的文件操作API
+	Storage StorageConfig `mapstructure:"storage"`
 }
 
 // Validator 定义可验证配置的接口
@@ -89,6 +93,7 @@ func (c *Config) Validate() error {
 		&c.InitDB,
 		&c.Executor,
 		&c.JWT,
+		&c.Storage,
 	}
 	for _, validator := range validators {
 		if validator == nil {

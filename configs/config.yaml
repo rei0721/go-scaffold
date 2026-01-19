@@ -210,3 +210,29 @@ rbac:
   # 表前缀
   # 用于区分不同数据库的表
   table_prefix: "rbac_"
+
+storage:
+  # 是否启用文件服务
+  # true: 启用, false: 禁用
+  enabled: true
+
+  # 文件系统类型
+  # os: 操作系统文件系统(默认)
+  # memory: 内存文件系统(用于测试)
+  # readonly: 只读文件系统
+  # basepath: 带基础路径的文件系统
+  fs_type: os
+
+  # 基础路径(仅basepath类型需要)
+  # 所有文件操作将相对于此路径
+  base_path: ./data
+
+  # 是否启用文件监听
+  # true: 启用文件变化监听
+  # false: 禁用文件监听功能
+  enable_watch: true
+
+  # 文件监听事件缓冲区大小
+  # 缓冲区满时,新事件将被阻塞
+  # 推荐值: 100-500
+  watch_buffer_size: 100

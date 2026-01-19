@@ -302,3 +302,51 @@ func makeExecutorConfigs(cfg *config.Config) []executor.Config {
 	}
 	return configs
 }
+
+// isStorageConfigChanged 检查 Storage 配置是否发生变化
+// 比较新旧配置的所有 Storage 相关字段
+// 参数:
+//
+//	oldCfg: 旧配置
+//	newCfg: 新配置
+//
+// 返回:
+//
+//	bool: 如果配置有任何差异返回 true,否则返回 false
+func isStorageConfigChanged(oldCfg, newCfg *config.Config) bool {
+	if oldCfg == newCfg {
+		return false
+	}
+
+	// 比较启用状态
+	if oldCfg.Storage.Enabled != newCfg.Storage.Enabled {
+		return true
+	}
+
+	// 如果都未启用,不需要关心其他字段
+	if !newCfg.Storage.Enabled {
+		return false
+	}
+
+	// 比较文件系统类型
+	if oldCfg.Storage.FSType != newCfg.Storage.FSType {
+		return true
+	}
+
+	// 比较基础路径
+	if oldCfg.Storage.BasePath != newCfg.Storage.BasePath {
+		return true
+	}
+
+	// 比较是否启用监听
+	if oldCfg.Storage.EnableWatch != newCfg.Storage.EnableWatch {
+		return true
+	}
+
+	// 比较监听缓冲区大小
+	if oldCfg.Storage.WatchBufferSize != newCfg.Storage.WatchBufferSize {
+		return true
+	}
+
+	return false
+}

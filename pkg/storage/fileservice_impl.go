@@ -14,7 +14,7 @@ import (
 	"github.com/xuri/excelize/v2"
 )
 
-// impl 是 FileService 接口的具体实现
+// impl 是 Storage 接口的具体实现
 type impl struct {
 	config  *Config
 	mu      sync.RWMutex
@@ -31,8 +31,8 @@ type watchEntry struct {
 	cancel  context.CancelFunc
 }
 
-// New 创建新的 FileService 实例
-func New(cfg *Config) (FileService, error) {
+// New 创建新的 Storage 实例
+func New(cfg *Config) (Storage, error) {
 	if cfg == nil {
 		cfg = &Config{}
 		cfg.DefaultConfig()
@@ -83,7 +83,7 @@ func (i *impl) initFileSystem() error {
 func (i *impl) initWatcher() error {
 	watcher, err := fsnotify.NewWatcher()
 	if err != nil {
-		return fmt.Errorf("fileservice: failed to create watcher: %w", err)
+		return fmt.Errorf("Storage: failed to create watcher: %w", err)
 	}
 	i.watcher = watcher
 	return nil
@@ -192,13 +192,13 @@ func (i *impl) OpenExcel(path string) (*excelize.File, error) {
 	// 读取文件内容
 	data, err := afero.ReadFile(i.fs, path)
 	if err != nil {
-		return nil, fmt.Errorf("fileservice: failed to read excel file: %w", err)
+		return nil, fmt.Errorf("Storage: failed to read excel file: %w", err)
 	}
 
 	// 从字节流打开
 	file, err := excelize.OpenReader(bytes.NewReader(data))
 	if err != nil {
-		return nil, fmt.Errorf("fileservice: failed to parse excel file: %w", err)
+		return nil, fmt.Errorf("Storage: failed to parse excel file: %w", err)
 	}
 
 	return file, nil
@@ -217,12 +217,12 @@ func (i *impl) SaveExcel(file *excelize.File, path string) error {
 	// 保存到缓冲区
 	buf, err := file.WriteToBuffer()
 	if err != nil {
-		return fmt.Errorf("fileservice: failed to write excel to buffer: %w", err)
+		return fmt.Errorf("Storage: failed to write excel to buffer: %w", err)
 	}
 
 	// 写入文件系统
 	if err := afero.WriteFile(i.fs, path, buf.Bytes(), 0644); err != nil {
-		return fmt.Errorf("fileservice: failed to save excel file: %w", err)
+		return fmt.Errorf("Storage: failed to save excel file: %w", err)
 	}
 
 	return nil
@@ -238,7 +238,7 @@ func (i *impl) ReadExcelSheet(path, sheet string) ([][]string, error) {
 
 	rows, err := file.GetRows(sheet)
 	if err != nil {
-		return nil, fmt.Errorf("fileservice: failed to read sheet %s: %w", sheet, err)
+		return nil, fmt.Errorf("Storage: failed to read sheet %s: %w", sheet, err)
 	}
 
 	return rows, nil
@@ -252,13 +252,13 @@ func (i *impl) OpenImage(path string) (image.Image, error) {
 	// 读取文件内容
 	data, err := afero.ReadFile(i.fs, path)
 	if err != nil {
-		return nil, fmt.Errorf("fileservice: failed to read image file: %w", err)
+		return nil, fmt.Errorf("Storage: failed to read image file: %w", err)
 	}
 
 	// 解码图片
 	img, err := imaging.Decode(bytes.NewReader(data))
 	if err != nil {
-		return nil, fmt.Errorf("fileservice: failed to decode image: %w", err)
+		return nil, fmt.Errorf("Storage: failed to decode image: %w", err)
 	}
 
 	return img, nil
@@ -272,12 +272,12 @@ func (i *impl) SaveImage(img image.Image, path string, format imaging.Format) er
 	// 编码图片到缓冲区
 	var buf bytes.Buffer
 	if err := imaging.Encode(&buf, img, format); err != nil {
-		return fmt.Errorf("fileservice: failed to encode image: %w", err)
+		return fmt.Errorf("Storage: failed to encode image: %w", err)
 	}
 
 	// 写入文件系统
 	if err := afero.WriteFile(i.fs, path, buf.Bytes(), 0644); err != nil {
-		return fmt.Errorf("fileservice: failed to save image file: %w", err)
+		return fmt.Errorf("Storage: failed to save image file: %w", err)
 	}
 
 	return nil

@@ -9,6 +9,7 @@ import (
 	"github.com/rei0721/go-scaffold/pkg/database"
 	"github.com/rei0721/go-scaffold/pkg/httpserver"
 	"github.com/rei0721/go-scaffold/pkg/logger"
+	"github.com/rei0721/go-scaffold/pkg/storage"
 )
 
 // reload
@@ -155,6 +156,38 @@ func (a *App) reload(old, new *config.Config) {
 			}
 		} else {
 			a.Logger.Warn("HTTPServer is nil, cannot reload configuration")
+		}
+	}
+
+	// Storage
+	// 检查 Storage 配置是否变化
+	if isStorageConfigChanged(old, new) {
+		a.Logger.Info("storage configuration changed, reloading storage...")
+
+		// 只有在 Storage 不为 nil 且新配置启用了 Storage 时才重载
+		if a.Storage != nil && new.Storage.Enabled {
+			// 创建新的 Storage 配置
+			newStorageCfg := &storage.Config{
+				FSType:          storage.FSType(new.Storage.FSType),
+				BasePath:        new.Storage.BasePath,
+				EnableWatch:     new.Storage.EnableWatch,
+				WatchBufferSize: new.Storage.WatchBufferSize,
+			}
+
+			// 使用超时上下文进行重载
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			defer cancel()
+
+			// 原子化重载 Storage 配置
+			if err := a.Storage.Reload(ctx, newStorageCfg); err != nil {
+				a.Logger.Error("failed to reload storage", "error", err)
+			} else {
+				a.Logger.Info("storage reloaded successfully")
+			}
+		} else if !new.Storage.Enabled {
+			a.Logger.Info("storage disabled in new config")
+		} else {
+			a.Logger.Warn("storage is nil, cannot reload configuration")
 		}
 	}
 }

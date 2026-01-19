@@ -36,6 +36,11 @@ func (app *App) runModeServer() (*App, error) {
 		return nil, err
 	}
 
+	// 阶段2.7：初始化Storage文件服务
+	if err := initStorage(app); err != nil {
+		return nil, err
+	}
+
 	// 阶段3：业务层和HTTP服务器
 	// 注意：initBusiness和initHTTPServer内部会自动注入executor
 	if err := app.initBusiness(); err != nil {

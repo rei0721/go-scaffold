@@ -23,7 +23,7 @@ func (i *impl) Copy(src, dst string, opts ...CopyOption) error {
 	// 检查源文件是否存在
 	exists, err := afero.Exists(i.fs, src)
 	if err != nil {
-		return fmt.Errorf("fileservice: failed to check source file: %w", err)
+		return fmt.Errorf("Storage: failed to check source file: %w", err)
 	}
 	if !exists {
 		return fmt.Errorf("%w: %s", ErrPathNotFound, src)
@@ -32,7 +32,7 @@ func (i *impl) Copy(src, dst string, opts ...CopyOption) error {
 	// 检查是否为文件
 	isDir, err := afero.IsDir(i.fs, src)
 	if err != nil {
-		return fmt.Errorf("fileservice: failed to check source type: %w", err)
+		return fmt.Errorf("Storage: failed to check source type: %w", err)
 	}
 	if isDir {
 		return fmt.Errorf("%w: %s is a directory, use CopyDir instead", ErrNotFile, src)
@@ -41,24 +41,24 @@ func (i *impl) Copy(src, dst string, opts ...CopyOption) error {
 	// 读取源文件内容
 	data, err := afero.ReadFile(i.fs, src)
 	if err != nil {
-		return fmt.Errorf("fileservice: failed to read source file: %w", err)
+		return fmt.Errorf("Storage: failed to read source file: %w", err)
 	}
 
 	// 获取源文件权限
 	srcInfo, err := i.fs.Stat(src)
 	if err != nil {
-		return fmt.Errorf("fileservice: failed to get source file info: %w", err)
+		return fmt.Errorf("Storage: failed to get source file info: %w", err)
 	}
 
 	// 写入目标文件
 	if err := afero.WriteFile(i.fs, dst, data, srcInfo.Mode()); err != nil {
-		return fmt.Errorf("fileservice: failed to write destination file: %w", err)
+		return fmt.Errorf("Storage: failed to write destination file: %w", err)
 	}
 
 	// 如果需要保留时间戳
 	if options.PreserveTimes {
 		if err := i.fs.Chtimes(dst, srcInfo.ModTime(), srcInfo.ModTime()); err != nil {
-			return fmt.Errorf("fileservice: failed to preserve times: %w", err)
+			return fmt.Errorf("Storage: failed to preserve times: %w", err)
 		}
 	}
 
@@ -79,7 +79,7 @@ func (i *impl) CopyDir(src, dst string, opts ...CopyOption) error {
 	// 检查源目录是否存在
 	exists, err := afero.Exists(i.fs, src)
 	if err != nil {
-		return fmt.Errorf("fileservice: failed to check source directory: %w", err)
+		return fmt.Errorf("Storage: failed to check source directory: %w", err)
 	}
 	if !exists {
 		return fmt.Errorf("%w: %s", ErrPathNotFound, src)
@@ -88,7 +88,7 @@ func (i *impl) CopyDir(src, dst string, opts ...CopyOption) error {
 	// 检查是否为目录
 	isDir, err := afero.IsDir(i.fs, src)
 	if err != nil {
-		return fmt.Errorf("fileservice: failed to check source type: %w", err)
+		return fmt.Errorf("Storage: failed to check source type: %w", err)
 	}
 	if !isDir {
 		return fmt.Errorf("%w: %s is a file, use Copy instead", ErrNotDirectory, src)
@@ -136,7 +136,7 @@ func (i *impl) copyDirWithLib(src, dst string, options *copyOptions) error {
 
 	// 执行复制
 	if err := copy.Copy(src, dst, copyOpts); err != nil {
-		return fmt.Errorf("fileservice: failed to copy directory: %w", err)
+		return fmt.Errorf("Storage: failed to copy directory: %w", err)
 	}
 
 	return nil
@@ -147,17 +147,17 @@ func (i *impl) copyDirWithAfero(src, dst string, options *copyOptions) error {
 	// 创建目标目录
 	srcInfo, err := i.fs.Stat(src)
 	if err != nil {
-		return fmt.Errorf("fileservice: failed to get source directory info: %w", err)
+		return fmt.Errorf("Storage: failed to get source directory info: %w", err)
 	}
 
 	if err := i.fs.MkdirAll(dst, srcInfo.Mode()); err != nil {
-		return fmt.Errorf("fileservice: failed to create destination directory: %w", err)
+		return fmt.Errorf("Storage: failed to create destination directory: %w", err)
 	}
 
 	// 读取源目录内容
 	entries, err := afero.ReadDir(i.fs, src)
 	if err != nil {
-		return fmt.Errorf("fileservice: failed to read source directory: %w", err)
+		return fmt.Errorf("Storage: failed to read source directory: %w", err)
 	}
 
 	// 遍历并复制每个条目
@@ -186,7 +186,7 @@ func (i *impl) copyDirWithAfero(src, dst string, options *copyOptions) error {
 	// 保留时间戳
 	if options.PreserveTimes {
 		if err := i.fs.Chtimes(dst, srcInfo.ModTime(), srcInfo.ModTime()); err != nil {
-			return fmt.Errorf("fileservice: failed to preserve directory times: %w", err)
+			return fmt.Errorf("Storage: failed to preserve directory times: %w", err)
 		}
 	}
 
@@ -198,24 +198,24 @@ func (i *impl) copyFileInternal(src, dst string, options *copyOptions) error {
 	// 读取源文件
 	data, err := afero.ReadFile(i.fs, src)
 	if err != nil {
-		return fmt.Errorf("fileservice: failed to read file: %w", err)
+		return fmt.Errorf("Storage: failed to read file: %w", err)
 	}
 
 	// 获取源文件信息
 	srcInfo, err := i.fs.Stat(src)
 	if err != nil {
-		return fmt.Errorf("fileservice: failed to get file info: %w", err)
+		return fmt.Errorf("Storage: failed to get file info: %w", err)
 	}
 
 	// 写入目标文件
 	if err := afero.WriteFile(i.fs, dst, data, srcInfo.Mode()); err != nil {
-		return fmt.Errorf("fileservice: failed to write file: %w", err)
+		return fmt.Errorf("Storage: failed to write file: %w", err)
 	}
 
 	// 保留时间戳
 	if options.PreserveTimes {
 		if err := i.fs.Chtimes(dst, srcInfo.ModTime(), srcInfo.ModTime()); err != nil {
-			return fmt.Errorf("fileservice: failed to preserve file times: %w", err)
+			return fmt.Errorf("Storage: failed to preserve file times: %w", err)
 		}
 	}
 

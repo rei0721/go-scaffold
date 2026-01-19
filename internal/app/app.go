@@ -17,6 +17,7 @@ import (
 	"github.com/rei0721/go-scaffold/pkg/jwt"
 	"github.com/rei0721/go-scaffold/pkg/rbac"
 	"github.com/rei0721/go-scaffold/pkg/sqlgen"
+	"github.com/rei0721/go-scaffold/pkg/storage"
 	"github.com/rei0721/go-scaffold/pkg/utils"
 
 	"github.com/rei0721/go-scaffold/internal/config"
@@ -88,6 +89,10 @@ type App struct {
 	// RBAC 角色访问控制
 	// 管理用户权限和角色
 	RBAC rbac.RBAC
+
+	// Storage 文件服务
+	// 提供统一的文件操作API,支持文件监听、复制、Excel和图片处理
+	Storage storage.Storage
 
 	// Crypto 密码加密器
 	// 用于安全地加密和验证密码
@@ -253,6 +258,16 @@ func (a *App) Shutdown(ctx context.Context) error {
 	if a.RBAC != nil {
 		a.RBAC.Close()
 		a.Logger.Info("rbac stopped")
+	}
+
+	// 关闭 Storage
+	if a.Storage != nil {
+		if err := a.Storage.Close(); err != nil {
+			a.Logger.Error("failed to close storage", "error", err)
+			errs = append(errs, fmt.Errorf("storage close: %w", err))
+		} else {
+			a.Logger.Info("storage closed")
+		}
 	}
 
 	// 关闭执行器(等待运行中的任务)
