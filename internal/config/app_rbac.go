@@ -6,6 +6,10 @@ import (
 
 // RBACConfig RBAC配置
 type RBACConfig struct {
+	// 是否启用RBAC（默认false）
+	// 设置为true时，将初始化RBAC并创建数据库表
+	Enabled bool `mapstructure:"enabled"`
+
 	// 模型文件路径（可选）
 	// 如果为空，将使用pkg/rbac目录下的内置model.conf
 	ModelPath string `mapstructure:"model_path"`

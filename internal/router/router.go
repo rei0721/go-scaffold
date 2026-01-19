@@ -7,6 +7,7 @@ import (
 
 	"github.com/rei0721/go-scaffold/internal/handler"
 	"github.com/rei0721/go-scaffold/internal/middleware"
+	rbacService "github.com/rei0721/go-scaffold/internal/service/rbac"
 	"github.com/rei0721/go-scaffold/pkg/jwt"
 	"github.com/rei0721/go-scaffold/pkg/logger"
 	"github.com/rei0721/go-scaffold/types/constants"
@@ -29,6 +30,9 @@ type Router struct {
 	// 通过接口注入,便于测试和替换实现
 	authHandler *handler.AuthHandler
 
+	// rbacHandler RBAC权限管理处理器
+	rbacHandler *handler.RBACHandler
+
 	// logger 日志记录器
 	// 用于记录路由相关的日志
 	// 也会传递给中间件使用
@@ -38,17 +42,21 @@ type Router struct {
 	// 用于认证中间件验证token
 	// 如果为nil,则不启用认证保护
 	jwt jwt.JWT
+
+	// rbacService RBAC服务
+	// 用于中间件权限检查
+	rbacService rbacService.RBACService
 }
 
 // New 创建一个新的 Router 实例
 // 这是工厂函数,遵循依赖注入模式
 // 参数:
 //
-//	userHandler: 用户处理器,处理用户相关的请求
+//	authHandler: 认证处理器
 //	rbacHandler: RBAC处理器
 //	log: 日志记录器,用于记录日志
 //	jwtManager: JWT管理器,用于认证中间件(可选,为nil时不启用认证保护)
-//	rbacService: RBAC服务,用于中间件权限检查(可选)
+//	rbacSvc: RBAC服务,用于中间件权限检查(可选)
 //
 // 返回:
 //
@@ -57,11 +65,13 @@ type Router struct {
 // 使用场景:
 //
 //	在应用初始化时创建,然后调用 Setup() 配置路由
-func New(authHandler *handler.AuthHandler, log logger.Logger, jwtManager jwt.JWT) *Router {
+func New(authHandler *handler.AuthHandler, rbacHandler *handler.RBACHandler, log logger.Logger, jwtManager jwt.JWT, rbacSvc rbacService.RBACService) *Router {
 	return &Router{
 		authHandler: authHandler,
+		rbacHandler: rbacHandler,
 		logger:      log,
 		jwt:         jwtManager,
+		rbacService: rbacSvc,
 	}
 }
 
@@ -148,6 +158,34 @@ func (r *Router) registerRoutes() {
 		v1.Group("/auth")
 		{
 
+		}
+
+		// ==================== 受保护路由 ====================
+		// RBAC管理路由组(需要认证+admin权限)
+		if r.rbacHandler != nil && r.jwt != nil && r.rbacService != nil {
+			rbacGroup := v1.Group("/rbac")
+			// 认证中间件
+			rbacGroup.Use(middleware.AuthMiddleware(r.jwt))
+			// 需要admin角色
+			rbacGroup.Use(middleware.RequireRole(r.rbacService, "admin"))
+			{
+				// 角色管理
+				rbacGroup.POST("/users/:id/roles", r.rbacHandler.AssignRole)
+				rbacGroup.POST("/users/:id/roles/batch", r.rbacHandler.AssignRoles)
+				rbacGroup.DELETE("/users/:id/roles/:role", r.rbacHandler.RevokeRole)
+				rbacGroup.GET("/users/:id/roles", r.rbacHandler.GetUserRoles)
+				rbacGroup.GET("/roles/:role/users", r.rbacHandler.GetRoleUsers)
+
+				// 策略管理
+				rbacGroup.POST("/policies", r.rbacHandler.AddPolicy)
+				rbacGroup.POST("/policies/batch", r.rbacHandler.AddPolicies)
+				rbacGroup.DELETE("/policies", r.rbacHandler.RemovePolicy)
+				rbacGroup.GET("/policies", r.rbacHandler.GetPolicies)
+				rbacGroup.GET("/roles/:role/policies", r.rbacHandler.GetPoliciesByRole)
+
+				// 权限检查
+				rbacGroup.POST("/check", r.rbacHandler.CheckPermission)
+			}
 		}
 
 	}

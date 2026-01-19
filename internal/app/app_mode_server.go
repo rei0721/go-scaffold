@@ -41,6 +41,17 @@ func (app *App) runModeServer() (*App, error) {
 		return nil, err
 	}
 
+	// 阶段2.8：初始化RBAC权限管理
+	// 注意：RBAC需要在数据库初始化之后
+	if app.Config.RBAC.Enabled {
+		if err := app.initRBAC(); err != nil {
+			return nil, err
+		}
+		app.Logger.Info("RBAC initialized successfully")
+	} else {
+		app.Logger.Info("RBAC is disabled")
+	}
+
 	// 阶段3：业务层和HTTP服务器
 	// 注意：initBusiness和initHTTPServer内部会自动注入executor
 	if err := app.initBusiness(); err != nil {

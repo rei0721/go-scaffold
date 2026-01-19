@@ -90,11 +90,6 @@ type UpdatePermissionRequest struct {
 	Status      *int    `json:"status,omitempty" binding:"omitempty,oneof=0 1"`
 }
 
-// AssignRoleRequest 分配角色请求
-type AssignRoleRequest struct {
-	RoleID int64 `json:"role_id" binding:"required"`
-}
-
 // ChangePasswordRequest 表示修改密码请求
 type ChangePasswordRequest struct {
 	// OldPassword 原密码

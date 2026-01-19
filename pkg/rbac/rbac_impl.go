@@ -57,7 +57,7 @@ func New(cfg *Config) (RBAC, error) {
 	}
 
 	// 创建Gorm Adapter
-	adapter, err := gormadapter.NewAdapterByDBWithCustomTable(cfg.DB, cfg.TablePrefix, "casbin_rule")
+	adapter, err := gormadapter.NewAdapterByDBWithCustomTable(cfg.DB, cfg.TablePrefix, DefaultTableName)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create gorm adapter: %w", err)
 	}
