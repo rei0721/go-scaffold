@@ -22,12 +22,34 @@ description: 识别场景并创建所需的 skill 文件
 
 ### 场景分析示例
 
-| 场景                  | 是否需要新 Skill | 建议                           |
-| --------------------- | ---------------- | ------------------------------ |
-| 添加新的 API 接口     | ❌               | 使用现有 `handler-development` |
-| 创建 GraphQL resolver | ✅               | 创建 `graphql-development`     |
-| 使用 gRPC 服务        | ✅               | 创建 `grpc-development`        |
-| 部署到 Kubernetes     | ✅               | 创建 `k8s-deployment`          |
+| 场景                                                                                                                                                                                                          | 是否需要新 Skill | 建议                               |
+| ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------- | ---------------------------------- |
+| 添加新的 API 接口                                                                                                                                                                                             | ❌               | 使用现有 `handler-development`     |
+| 开发一个业务逻辑，需要用到一个工具，然后会分析目录结构，找到符合需要的工具名，再查看工具文档，再使用，那么这一步很繁琐，所以需要创建一个skill来统计这些pkg的变动同步以及pkg的清单索引，方便快速找到需要的工具 | ✅               | 创建 `pkg-index`                   |
+| 开发过程中存在可通用工具包，但是没有这个工具包，那么应该创建一个pkg，但是没有自主创建pkg的skill                                                                                                               | ✅               | 创建 `pkg-development`             |
+| 项目中有大量配置项分散在多个文件中，缺乏统一的配置管理和验证机制，需要标准化配置的创建、校验和环境变量覆盖流程                                                                                                | ✅               | 创建 `config-management`           |
+| 需要实现异步任务处理（如邮件发送、报表生成），但没有标准的任务队列和调度机制指导                                                                                                                              | ✅               | 创建 `async-task-development`      |
+| 代码中存在多处数据库查询性能问题，需要规范化的性能优化方法论（索引优化、慢查询分析、查询重构）                                                                                                                | ✅               | 创建 `db-performance-optimization` |
+| 项目需要接入第三方 API（支付、短信、OSS），缺少统一的第三方服务集成模式和错误处理规范                                                                                                                         | ✅               | 创建 `third-party-integration`     |
+| 需要实现数据导入导出功能（Excel、CSV），但没有统一的导入导出模板和验证流程                                                                                                                                    | ✅               | 创建 `data-import-export`          |
+| 项目需要添加定时任务（数据清理、统计报表），缺少 Cron 任务的标准开发和管理流程                                                                                                                                | ✅               | 创建 `cron-job-development`        |
+| 需要实现 WebSocket 推送功能，但缺少连接管理、消息路由、状态同步的规范                                                                                                                                         | ✅               | 创建 `websocket-development`       |
+| 代码审查时发现多处安全隐患（SQL 注入、XSS、权限绕过），需要系统化的安全审计checklist                                                                                                                          | ✅               | 创建 `security-audit`              |
+| 项目需要多环境部署（dev/staging/prod），但环境配置管理混乱，需要标准化的环境切换和配置隔离方案                                                                                                                | ✅               | 创建 `environment-management`      |
+| 需要实现数据库迁移版本管理，但缺少迁移脚本的编写规范和回滚策略                                                                                                                                                | ✅               | 创建 `database-migration`          |
+| 项目中存在大量重复的业务逻辑代码，需要提取公共业务组件，但缺少业务组件的设计和抽象指导                                                                                                                        | ✅               | 创建 `business-component-design`   |
+| 需要实现完整的日志收集、分析、告警体系，但缺少结构化日志规范和日志等级使用指导                                                                                                                                | ✅               | 创建 `logging-strategy`            |
+| 项目需要接入分布式追踪（OpenTelemetry/Jaeger），但缺少链路追踪的集成和最佳实践                                                                                                                                | ✅               | 创建 `distributed-tracing`         |
+| 需要实现接口限流、熔断、降级等高可用保护机制，但缺少统一的服务治理规范                                                                                                                                        | ✅               | 创建 `service-governance`          |
+| 项目需要生成 API 文档（Swagger/OpenAPI），但缺少注释规范和文档生成流程                                                                                                                                        | ✅               | 创建 `api-documentation`           |
+| 需要实现多租户数据隔离，但缺少租户上下文传递和数据过滤的标准模式                                                                                                                                              | ✅               | 创建 `multi-tenancy`               |
+| 项目需要实现事件驱动架构（Event Sourcing/CQRS），但缺少事件设计和发布订阅模式规范                                                                                                                             | ✅               | 创建 `event-driven-development`    |
+| 需要对接 Kafka/RabbitMQ 等消息队列，但缺少消息生产、消费、幂等性处理的标准流程                                                                                                                                | ✅               | 创建 `message-queue-integration`   |
+| 项目需要实现分布式锁（Redis/etcd），但缺少锁的获取、释放、超时处理的最佳实践                                                                                                                                  | ✅               | 创建 `distributed-lock`            |
+| 需要实现文件上传下载功能（本地存储/云存储），但缺少文件处理、安全校验、存储策略的规范                                                                                                                         | ✅               | 创建 `file-storage`                |
+| 创建 GraphQL resolver                                                                                                                                                                                         | ✅               | 创建 `graphql-development`         |
+| 使用 gRPC 服务                                                                                                                                                                                                | ✅               | 创建 `grpc-development`            |
+| 部署到 Kubernetes                                                                                                                                                                                             | ✅               | 创建 `k8s-deployment`              |
 
 ## Skill 设计流程
 

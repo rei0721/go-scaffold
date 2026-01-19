@@ -18,27 +18,27 @@ updated: 2026-01-19
 1. **定义数据模型**
    - 文件：`internal/models/{entity}.go`
    - 操作：使用 GORM 标签定义表结构和关联
-   - Skill：[model-development](file:///d:/coder/go/go-scaffold/main/go-scaffold/.agent/skills/model-development/SKILL.md)
+   - Skill：[model-development](/.agent/skills/model-development/SKILL.md)
 
 2. **创建 Repository 接口和实现**
    - 文件：`internal/repository/{entity}_repository.go`
    - 操作：实现 CRUD 和自定义查询方法
-   - Skill：[repository-development](file:///d:/coder/go/go-scaffold/main/go-scaffold/.agent/skills/repository-development/SKILL.md)
+   - Skill：[repository-development](/.agent/skills/repository-development/SKILL.md)
 
 3. **创建 Service 接口**
    - 文件：`internal/service/{module}/interface.go`
    - 操作：定义业务接口方法
-   - Skill：[service-development](file:///d:/coder/go/go-scaffold/main/go-scaffold/.agent/skills/service-development/SKILL.md)
+   - Skill：[service-development](/.agent/skills/service-development/SKILL.md)
 
 4. **实现 Service 逻辑**
    - 文件：`internal/service/{module}/{entity}_service.go`
    - 操作：实现业务逻辑，调用 Repository
-   - Skill：[service-development](file:///d:/coder/go/go-scaffold/main/go-scaffold/.agent/skills/service-development/SKILL.md)
+   - Skill：[service-development](/.agent/skills/service-development/SKILL.md)
 
 5. **创建 Handler**
    - 文件：`internal/handler/{entity}.go`
    - 操作：实现 HTTP 处理，调用 Service
-   - Skill：[handler-development](file:///d:/coder/go/go-scaffold/main/go-scaffold/.agent/skills/handler-development/SKILL.md)
+   - Skill：[handler-development](/.agent/skills/handler-development/SKILL.md)
 
 6. **注册路由**
    - 文件：`internal/router/router.go`
@@ -51,7 +51,7 @@ updated: 2026-01-19
 8. **编写测试**
    - 文件：`internal/service/{module}/{entity}_service_test.go`
    - 操作：编写单元测试和集成测试
-   - Skill：[test-development](file:///d:/coder/go/go-scaffold/main/go-scaffold/.agent/skills/test-development/SKILL.md)
+   - Skill：[test-development](/.agent/skills/test-development/SKILL.md)
 
 ### 注意事项
 
@@ -71,7 +71,7 @@ updated: 2026-01-19
 1. **创建中间件文件**
    - 文件：`internal/middleware/{name}.go`
    - 操作：实现 `gin.HandlerFunc` 函数
-   - Skill：[middleware-development](file:///d:/coder/go/go-scaffold/main/go-scaffold/.agent/skills/middleware-development/SKILL.md)
+   - Skill：[middleware-development](/.agent/skills/middleware-development/SKILL.md)
 
 2. **注册中间件**
    - 文件：`internal/router/router.go`
@@ -80,7 +80,7 @@ updated: 2026-01-19
 3. **编写测试**
    - 文件：`internal/middleware/{name}_test.go`
    - 操作：测试中间件逻辑
-   - Skill：[test-development](file:///d:/coder/go/go-scaffold/main/go-scaffold/.agent/skills/test-development/SKILL.md)
+   - Skill：[test-development](/.agent/skills/test-development/SKILL.md)
 
 ### 注意事项
 
@@ -104,12 +104,12 @@ updated: 2026-01-19
 2. **定义接口**
    - 文件：`pkg/{tool-name}/{tool-name}.go`
    - 操作：定义工具包的接口和主要类型
-   - Skill：[pkg-development](file:///d:/coder/go/go-scaffold/main/go-scaffold/.agent/skills/pkg-development/SKILL.md)
+   - Skill：[pkg-development](/.agent/skills/pkg-development/SKILL.md)
 
 3. **实现功能**
    - 文件：`pkg/{tool-name}/*.go`
    - 操作：实现具体功能
-   - Skill：[pkg-development](file:///d:/coder/go/go-scaffold/main/go-scaffold/.agent/skills/pkg-development/SKILL.md)
+   - Skill：[pkg-development](/.agent/skills/pkg-development/SKILL.md)
 
 4. **编写文档**
    - 文件：`pkg/{tool-name}/doc.go`
@@ -119,7 +119,7 @@ updated: 2026-01-19
 5. **编写测试**
    - 文件：`pkg/{tool-name}/*_test.go`
    - 操作：编写单元测试
-   - Skill：[test-development](file:///d:/coder/go/go-scaffold/main/go-scaffold/.agent/skills/test-development/SKILL.md)
+   - Skill：[test-development](/.agent/skills/test-development/SKILL.md)
 
 6. **在 App 中集成**
    - 文件：`internal/app/app_infrastructure.go`
@@ -360,7 +360,7 @@ func (s *userService) GetByID(id uint) (*models.User, error) {
 
 2. **编写测试用例**
    - 操作：使用 testing 包编写测试
-   - Skill：[test-development](file:///d:/coder/go/go-scaffold/main/go-scaffold/.agent/skills/test-development/SKILL.md)
+   - Skill：[test-development](/.agent/skills/test-development/SKILL.md)
 
 3. **Mock 依赖**
    - 操作：使用 mock 替代真实依赖

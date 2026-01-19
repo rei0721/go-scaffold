@@ -447,4 +447,4 @@ type UserHandler struct {
 
 **定义错误码和错误类型，统一处理和响应**
 
-参见 [error-handling skill](file:///d:/coder/go/go-scaffold/main/go-scaffold/.agent/skills/error-handling/SKILL.md)
+参见 [error-handling skill](/.agent/skills/error-handling/SKILL.md)

@@ -42,7 +42,7 @@ type {Name} interface {
     // 返回:
     //   error: 错误描述
     Method(ctx context.Context) error
-    
+
     // Reloader 嵌入热重载接口（如需支持）
     Reloader
 }
@@ -94,7 +94,7 @@ package {name}
 import (
     "sync"
     "sync/atomic"
-    
+
     "github.com/rei0721/go-scaffold/pkg/executor"
 )
 
@@ -110,11 +110,11 @@ func New(cfg *Config) ({Name}, error) {
     if err := cfg.Validate(); err != nil {
         return nil, err
     }
-    
+
     i := &impl{
         config: cfg,
     }
-    
+
     return i, nil
 }
 
@@ -131,10 +131,10 @@ func (i *impl) Reload(cfg *Config) error {
     if err := cfg.Validate(); err != nil {
         return err
     }
-    
+
     i.mu.Lock()
     defer i.mu.Unlock()
-    
+
     // 原子替换配置
     i.config = cfg
     return nil
@@ -208,7 +208,7 @@ package {name}
 
 ### 7. 创建 README.md
 
-```markdown
+````markdown
 # {Package Name}
 
 ## 功能
@@ -220,6 +220,7 @@ package {name}
 ```go
 import "github.com/rei0721/go-scaffold/pkg/{name}"
 ```
+````
 
 ## 使用
 
@@ -230,15 +231,16 @@ instance, err := {name}.New(cfg)
 
 ## 配置
 
-| 字段 | 类型 | 默认值 | 说明 |
-|-----|------|-------|------|
-| Field | string | "" | 字段说明 |
+| 字段  | 类型   | 默认值 | 说明     |
+| ----- | ------ | ------ | -------- |
+| Field | string | ""     | 字段说明 |
 
 ## 接口
 
 - `{Name}`: 主接口
 - `Reloader`: 热重载接口
-```
+
+````
 
 ## 集成到 App 容器
 
@@ -251,16 +253,16 @@ func (a *App) init{Name}() error {
     cfg := &{name}.Config{
         // 从 a.Config 读取配置
     }
-    
+
     instance, err := {name}.New(cfg)
     if err != nil {
         return err
     }
-    
+
     a.{Name} = instance
     return nil
 }
-```
+````
 
 ## 检查清单
 

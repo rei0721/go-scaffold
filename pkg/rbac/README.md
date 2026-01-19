@@ -16,7 +16,7 @@
 
 依赖已包含在项目中：
 
-- `github.com/casbin/casbin/v2`
+- `github.com/casbin/casbin/v3`
 - `github.com/casbin/gorm-adapter/v3`
 
 ### 2. 基本使用
@@ -299,7 +299,7 @@ rbac, _ := rbac.New(&rbac.Config{
 
 ### 必须依赖
 
-- `github.com/casbin/casbin/v2` - Casbin核心库
+- `github.com/casbin/casbin/v3` - Casbin核心库
 - `github.com/casbin/gorm-adapter/v3` - GORM适配器
 - `gorm.io/gorm` - GORM ORM
 
