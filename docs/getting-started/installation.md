@@ -24,6 +24,7 @@ tree -L 2
 ```
 
 预期输出：
+
 ```
 .
 ├── cmd/                 # 应用程序入口
@@ -84,7 +85,7 @@ cp .env.example .env
 app:
   name: "go-scaffold"
   version: "0.1.2"
-  mode: "development"  # development, production, test
+  mode: "development" # development, production, test
   debug: true
 
 # 服务器配置
@@ -98,7 +99,7 @@ server:
 # 数据库配置
 database:
   enabled: true
-  driver: "mysql"  # mysql, postgres, sqlite
+  driver: "mysql" # mysql, postgres, sqlite
   host: "localhost"
   port: 3306
   username: "root"
@@ -123,17 +124,17 @@ cache:
 jwt:
   secret: "your-secret-key-change-in-production"
   expires_in: "24h"
-  refresh_expires_in: "168h"  # 7 days
+  refresh_expires_in: "168h" # 7 days
 
 # 日志配置
 logger:
-  level: "info"  # debug, info, warn, error
-  format: "json"  # json, console
-  output: "stdout"  # stdout, file
+  level: "info" # debug, info, warn, error
+  format: "json" # json, console
+  output: "stdout" # stdout, file
   file_path: "logs/app.log"
-  max_size: 100  # MB
+  max_size: 100 # MB
   max_backups: 5
-  max_age: 30  # days
+  max_age: 30 # days
 
 # 国际化配置
 i18n:
@@ -183,29 +184,33 @@ LOG_FORMAT=json
 ### 1. 创建数据库
 
 #### MySQL
+
 ```sql
 CREATE DATABASE scaffold CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 ```
 
 #### PostgreSQL
+
 ```sql
 CREATE DATABASE scaffold WITH ENCODING 'UTF8';
 ```
 
 #### SQLite
+
 SQLite 数据库会自动创建，无需手动操作。
 
 ### 2. 初始化数据库
 
 ```bash
 # 使用项目内置命令初始化数据库
-go run cmd/server/main.go initdb
+go run ./cmd/server initdb
 
 # 或使用 Makefile
 make initdb
 ```
 
 这将执行以下操作：
+
 - 创建必要的数据表
 - 插入初始数据
 - 设置默认用户和角色
@@ -214,7 +219,7 @@ make initdb
 
 ```bash
 # 测试数据库连接
-go run cmd/server/main.go tests
+go run ./cmd/server tests
 
 # 或使用 Makefile
 make test-db
@@ -251,13 +256,13 @@ make clean
 
 ```bash
 # 构建可执行文件
-go build -o bin/server cmd/server/main.go
+go build -o bin/server ./cmd/server
 
 # 交叉编译 (Linux)
-GOOS=linux GOARCH=amd64 go build -o bin/server-linux cmd/server/main.go
+GOOS=linux GOARCH=amd64 go build -o bin/server-linux ./cmd/server
 
 # 交叉编译 (Windows)
-GOOS=windows GOARCH=amd64 go build -o bin/server.exe cmd/server/main.go
+GOOS=windows GOARCH=amd64 go build -o bin/server.exe ./cmd/server
 ```
 
 ## 🚀 启动应用
@@ -266,7 +271,7 @@ GOOS=windows GOARCH=amd64 go build -o bin/server.exe cmd/server/main.go
 
 ```bash
 # 直接运行
-go run cmd/server/main.go server
+go run ./cmd/server server
 
 # 使用 Air 热重载
 air
@@ -283,7 +288,7 @@ make build
 ./bin/server server
 
 # 或直接运行
-go run cmd/server/main.go server --config=configs/config.yaml
+go run ./cmd/server server --config=configs/config.yaml
 ```
 
 ### 3. 验证启动
@@ -317,7 +322,7 @@ docker images | grep go-scaffold
 创建 `docker-compose.yml`：
 
 ```yaml
-version: '3.8'
+version: "3.8"
 
 services:
   app:
@@ -430,6 +435,7 @@ go test -bench=BenchmarkLogger ./pkg/logger
 
 **问题**: `go mod download` 失败
 **解决方案**:
+
 ```bash
 # 设置 Go 代理
 go env -w GOPROXY=https://goproxy.cn,direct
@@ -443,6 +449,7 @@ go env -w GOPROXY=https://proxy.golang.org,direct
 
 **问题**: 数据库连接被拒绝
 **解决方案**:
+
 1. 检查数据库服务是否运行
 2. 验证连接参数（主机、端口、用户名、密码）
 3. 检查防火墙设置
@@ -452,6 +459,7 @@ go env -w GOPROXY=https://proxy.golang.org,direct
 
 **问题**: 端口 8080 已被占用
 **解决方案**:
+
 ```bash
 # 查找占用端口的进程
 lsof -i :8080
@@ -466,6 +474,7 @@ kill -9 <PID>
 
 **问题**: 文件权限不足
 **解决方案**:
+
 ```bash
 # 修改文件权限
 chmod +x bin/server
@@ -491,7 +500,7 @@ go mod download
 
 ```bash
 # 运行数据库迁移
-go run cmd/server/main.go initdb --migrate
+go run ./cmd/server initdb --migrate
 ```
 
 ### 3. 重新构建

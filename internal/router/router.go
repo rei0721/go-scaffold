@@ -104,13 +104,19 @@ func (r *Router) Setup(cfg middleware.MiddlewareConfig) *gin.Engine {
 	// 这是分布式追踪的基础
 	r.engine.Use(middleware.TraceID(cfg.TraceID))
 
-	// 2. 应用 Logger 中间件
+	// 2. 应用 CORS 中间件
+	// 处理跨域资源共享(CORS)
+	// 必须在其他中间件之前,以便预检请求(OPTIONS)能被正确处理
+	// 这样可以确保所有跨域请求的响应都包含正确的 CORS 头
+	r.engine.Use(middleware.CORSMiddleware(cfg.CORS))
+
+	// 3. 应用 Logger 中间件
 	// 记录每个请求的详细信息:方法、路径、状态码、耗时、TraceID 等
 	// 这对于监控、调试和问题排查至关重要
 	// 可以在配置中指定跳过某些路径(如健康检查)
 	r.engine.Use(middleware.Logger(cfg.Logger, r.logger))
 
-	// 3. 应用 Recovery 中间件(必须最后)
+	// 4. 应用 Recovery 中间件(必须最后)
 	// 捕获所有 panic,防止服务崩溃
 	// 必须在所有其他中间件之后,才能捕获它们的 panic
 	// 发生 panic 时会记录日志并返回 500 错误

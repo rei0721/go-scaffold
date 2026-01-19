@@ -54,6 +54,8 @@ func (app *App) initBusiness() error {
 
 	// Setup router with middleware
 	middlewareCfg := middleware.DefaultMiddlewareConfig()
+	// 添加 CORS 配置
+	middlewareCfg.CORS = app.getCORSMiddlewareConfig()
 	app.Router = r.Setup(middlewareCfg)
 
 	return nil

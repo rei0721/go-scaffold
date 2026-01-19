@@ -7,8 +7,9 @@ Go Scaffold 基于现代化的 Go 生态系统构建，选择了经过生产验�
 ## 🔧 开发语言与运行时
 
 ### Go 1.24.6
+
 - **选择理由**: 高性能、强类型、并发友好的现代编程语言
-- **特性**: 
+- **特性**:
   - 原生协程支持，高并发处理能力
   - 快速编译，单一可执行文件部署
   - 丰富的标准库和第三方生态
@@ -17,6 +18,7 @@ Go Scaffold 基于现代化的 Go 生态系统构建，选择了经过生产验�
 ## 🌐 Web 框架
 
 ### Gin v1.11.0
+
 ```go
 github.com/gin-gonic/gin v1.11.0
 ```
@@ -30,6 +32,7 @@ github.com/gin-gonic/gin v1.11.0
   - 渲染支持（JSON、XML、HTML等）
 
 **使用示例**:
+
 ```go
 router := gin.New()
 router.Use(gin.Logger(), gin.Recovery())
@@ -39,6 +42,7 @@ router.GET("/api/v1/users", userHandler.GetUsers)
 ## 🗄️ 数据存储
 
 ### GORM v1.31.1
+
 ```go
 gorm.io/gorm v1.31.1
 ```
@@ -52,13 +56,15 @@ gorm.io/gorm v1.31.1
   - 软删除和批量操作
 
 **支持的数据库驱动**:
+
 ```go
 gorm.io/driver/mysql v1.6.0      // MySQL
-gorm.io/driver/postgres v1.6.0   // PostgreSQL  
+gorm.io/driver/postgres v1.6.0   // PostgreSQL
 gorm.io/driver/sqlite v1.6.0     // SQLite
 ```
 
 ### Redis v9.17.2
+
 ```go
 github.com/redis/go-redis/v9 v9.17.2
 ```
@@ -74,6 +80,7 @@ github.com/redis/go-redis/v9 v9.17.2
 ## 🔐 安全认证
 
 ### JWT v5.3.0
+
 ```go
 github.com/golang-jwt/jwt/v5 v5.3.0
 ```
@@ -86,6 +93,7 @@ github.com/golang-jwt/jwt/v5 v5.3.0
   - 过期时间管理
 
 ### Bcrypt 加密
+
 ```go
 golang.org/x/crypto v0.46.0
 ```
@@ -98,6 +106,7 @@ golang.org/x/crypto v0.46.0
   - 时间攻击防护
 
 ### Casbin v3.8.1
+
 ```go
 github.com/casbin/casbin/v3 v3.8.1
 github.com/casbin/gorm-adapter/v3 v3.40.0
@@ -113,6 +122,7 @@ github.com/casbin/gorm-adapter/v3 v3.40.0
 ## 📝 日志系统
 
 ### Zap v1.27.1
+
 ```go
 go.uber.org/zap v1.27.1
 ```
@@ -126,6 +136,7 @@ go.uber.org/zap v1.27.1
   - 自定义编码器和输出器
 
 ### Lumberjack v2.2.1
+
 ```go
 gopkg.in/natefinch/lumberjack.v2 v2.2.1
 ```
@@ -140,6 +151,7 @@ gopkg.in/natefinch/lumberjack.v2 v2.2.1
 ## ⚙️ 配置管理
 
 ### Viper v1.21.0
+
 ```go
 github.com/spf13/viper v1.21.0
 ```
@@ -153,6 +165,7 @@ github.com/spf13/viper v1.21.0
   - 远程配置支持
 
 ### GoDotEnv v1.5.1
+
 ```go
 github.com/joho/godotenv v1.5.1
 ```
@@ -167,6 +180,7 @@ github.com/joho/godotenv v1.5.1
 ## 🌍 国际化
 
 ### Go-i18n v2.6.0
+
 ```go
 github.com/nicksnyder/go-i18n/v2 v2.6.0
 golang.org/x/text v0.32.0
@@ -183,6 +197,7 @@ golang.org/x/text v0.32.0
 ## ⚡ 性能优化
 
 ### Ants v2.11.4
+
 ```go
 github.com/panjf2000/ants/v2 v2.11.4
 ```
@@ -196,6 +211,7 @@ github.com/panjf2000/ants/v2 v2.11.4
   - 监控和统计
 
 ### Snowflake v0.3.0
+
 ```go
 github.com/bwmarrin/snowflake v0.3.0
 ```
@@ -210,6 +226,7 @@ github.com/bwmarrin/snowflake v0.3.0
 ## 🔧 开发工具
 
 ### Air (热重载)
+
 ```bash
 go install github.com/cosmtrek/air@latest
 ```
@@ -222,6 +239,7 @@ go install github.com/cosmtrek/air@latest
   - 彩色日志输出
 
 ### FSNotify v1.9.0
+
 ```go
 github.com/fsnotify/fsnotify v1.9.0
 ```
@@ -236,6 +254,7 @@ github.com/fsnotify/fsnotify v1.9.0
 ## 🧪 测试框架
 
 ### 内置测试
+
 ```go
 import "testing"
 ```
@@ -248,6 +267,7 @@ import "testing"
   - 子测试和表格驱动测试
 
 ### Testify (推荐)
+
 ```go
 github.com/stretchr/testify
 ```
@@ -262,6 +282,7 @@ github.com/stretchr/testify
 ## 📦 构建和部署
 
 ### Docker
+
 ```dockerfile
 FROM golang:1.24-alpine AS builder
 # 构建阶段
@@ -277,10 +298,11 @@ FROM alpine:latest
   - 可移植性
 
 ### Make
+
 ```makefile
 .PHONY: build test clean
 build:
-	go build -o bin/server cmd/server/main.go
+	go build -o bin/server ./cmd/server
 ```
 
 - **选择理由**: 简单的构建自动化工具
@@ -293,21 +315,25 @@ build:
 ## 📊 技术选型原则
 
 ### 1. 性能优先
+
 - 选择高性能的库和框架
 - 避免过度抽象和复杂度
 - 关注内存使用和GC压力
 
 ### 2. 生产就绪
+
 - 选择成熟稳定的技术
 - 有活跃的社区支持
 - 良好的文档和示例
 
 ### 3. 可维护性
+
 - 代码简洁易懂
 - 良好的错误处理
 - 完善的日志和监控
 
 ### 4. 可扩展性
+
 - 模块化设计
 - 接口驱动开发
 - 支持水平扩展
@@ -315,11 +341,13 @@ build:
 ## 🔄 版本管理策略
 
 ### 依赖版本锁定
+
 - 使用 `go.mod` 锁定依赖版本
 - 定期更新安全补丁
 - 测试兼容性后升级主版本
 
 ### 向后兼容
+
 - 遵循语义化版本规范
 - 保持API稳定性
 - 渐进式升级策略

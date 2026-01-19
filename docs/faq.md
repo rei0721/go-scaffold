@@ -9,13 +9,14 @@
 **A:** 这通常是因为配置文件不存在导致的。
 
 **解决方案：**
+
 ```bash
 # 复制示例配置文件
 cp configs/config.example.yaml configs/config.yaml
 cp .env.example .env
 
 # 或者指定配置文件路径
-go run cmd/server/main.go server --config=configs/config.yaml
+go run ./cmd/server server --config=configs/config.yaml
 ```
 
 ### Q: 数据库连接失败，提示 "connection refused"
@@ -23,6 +24,7 @@ go run cmd/server/main.go server --config=configs/config.yaml
 **A:** 数据库服务未启动或连接参数错误。
 
 **解决方案：**
+
 ```bash
 # 检查数据库服务状态
 sudo systemctl status mysql
@@ -44,10 +46,11 @@ vim configs/config.yaml
 **A:** 可以在配置文件中禁用 Redis。
 
 **解决方案：**
+
 ```yaml
 # configs/config.yaml
 cache:
-  enabled: false  # 禁用 Redis 缓存
+  enabled: false # 禁用 Redis 缓存
 ```
 
 ### Q: 端口 8080 被占用
@@ -55,13 +58,15 @@ cache:
 **A:** 修改配置文件中的端口号。
 
 **解决方案：**
+
 ```yaml
 # configs/config.yaml
 server:
-  port: 9000  # 修改为其他端口
+  port: 9000 # 修改为其他端口
 ```
 
 或者找到占用端口的进程：
+
 ```bash
 # 查找占用端口的进程
 lsof -i :8080
@@ -77,15 +82,16 @@ kill -9 <PID>
 **A:** 检查数据库权限和配置。
 
 **解决方案：**
+
 ```bash
 # 确保数据库存在
 mysql -u root -p -e "CREATE DATABASE scaffold CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 
 # 重新初始化数据库
-go run cmd/server/main.go initdb --force
+go run ./cmd/server initdb --force
 
 # 检查数据库配置
-go run cmd/server/main.go tests --test=database
+go run ./cmd/server tests --test=database
 ```
 
 ### Q: 如何切换数据库类型？
@@ -93,6 +99,7 @@ go run cmd/server/main.go tests --test=database
 **A:** 修改配置文件中的数据库驱动。
 
 **解决方案：**
+
 ```yaml
 # 使用 MySQL
 database:
@@ -123,9 +130,10 @@ database:
 **A:** 项目使用 GORM 的自动迁移功能。
 
 **解决方案：**
+
 ```bash
 # 重新运行数据库初始化
-go run cmd/server/main.go initdb
+go run ./cmd/server initdb
 
 # 或者在代码中手动迁移
 db.AutoMigrate(&models.User{}, &models.Role{})
@@ -138,11 +146,12 @@ db.AutoMigrate(&models.User{}, &models.Role{})
 **A:** 在配置文件中修改 JWT 相关设置。
 
 **解决方案：**
+
 ```yaml
 # configs/config.yaml
 jwt:
-  expires_in: "72h"              # 访问令牌 3 天过期
-  refresh_expires_in: "720h"     # 刷新令牌 30 天过期
+  expires_in: "72h" # 访问令牌 3 天过期
+  refresh_expires_in: "720h" # 刷新令牌 30 天过期
 ```
 
 ### Q: 如何添加新的用户角色？
@@ -150,6 +159,7 @@ jwt:
 **A:** 通过 RBAC 系统添加角色和权限。
 
 **解决方案：**
+
 ```go
 // 在初始化时添加角色
 rbac.AddRole("editor")
@@ -165,9 +175,10 @@ rbac.AddRoleForUser("user123", "editor")
 **A:** 通过数据库直接重置密码。
 
 **解决方案：**
+
 ```bash
 # 重新初始化数据库（会重置所有数据）
-go run cmd/server/main.go initdb --force
+go run ./cmd/server initdb --force
 
 # 或者直接修改数据库中的密码
 # 首先生成新密码的哈希值
@@ -194,6 +205,7 @@ mysql -u root -p scaffold -e "UPDATE users SET password='$2a$12$...' WHERE usern
 **A:** 检查环境变量名称和格式。
 
 **解决方案：**
+
 ```bash
 # 确保使用正确的前缀
 export REI_DATABASE_HOST=localhost
@@ -212,6 +224,7 @@ echo "DB_PORT=3306" >> .env
 **A:** 确保启用了热重载功能。
 
 **解决方案：**
+
 ```yaml
 # configs/config.yaml
 app:
@@ -224,16 +237,17 @@ app:
 **A:** 使用环境特定的配置文件。
 
 **解决方案：**
+
 ```bash
 # 创建环境特定配置
 cp configs/config.yaml configs/config.production.yaml
 
 # 使用特定配置启动
-go run cmd/server/main.go server --config=configs/config.production.yaml
+go run ./cmd/server server --config=configs/config.production.yaml
 
 # 或使用环境变量
 export REI_CONFIG_PATH=configs/config.production.yaml
-go run cmd/server/main.go server
+go run ./cmd/server server
 ```
 
 ## 📝 日志相关
@@ -243,16 +257,17 @@ go run cmd/server/main.go server
 **A:** 配置日志轮转。
 
 **解决方案：**
+
 ```yaml
 # configs/config.yaml
 logger:
   output: "file"
   file:
     path: "logs/app.log"
-    max_size: 100      # 100MB
-    max_backups: 5     # 保留 5 个备份
-    max_age: 30        # 保留 30 天
-    compress: true     # 压缩备份文件
+    max_size: 100 # 100MB
+    max_backups: 5 # 保留 5 个备份
+    max_age: 30 # 保留 30 天
+    compress: true # 压缩备份文件
 ```
 
 ### Q: 如何调整日志级别？
@@ -260,13 +275,15 @@ logger:
 **A:** 修改配置文件或使用环境变量。
 
 **解决方案：**
+
 ```yaml
 # configs/config.yaml
 logger:
-  level: "debug"  # debug, info, warn, error
+  level: "debug" # debug, info, warn, error
 ```
 
 或者：
+
 ```bash
 export REI_LOGGER_LEVEL=debug
 ```
@@ -276,6 +293,7 @@ export REI_LOGGER_LEVEL=debug
 **A:** 使用 JSON 格式便于日志分析。
 
 **解决方案：**
+
 ```yaml
 # configs/config.yaml
 logger:
@@ -297,21 +315,22 @@ logger:
 **A:** 检查数据库连接和依赖初始化。
 
 **解决方案：**
+
 ```bash
 # 启用调试模式查看启动过程
 export REI_LOGGER_LEVEL=debug
-go run cmd/server/main.go server
+go run ./cmd/server server
 
 # 检查数据库连接时间
-go run cmd/server/main.go tests --test=database
+go run ./cmd/server tests --test=database
 
 # 优化数据库连接池配置
 ```
 
 ```yaml
 database:
-  max_open_conns: 25    # 减少连接数
-  max_idle_conns: 5     # 减少空闲连接
+  max_open_conns: 25 # 减少连接数
+  max_idle_conns: 5 # 减少空闲连接
   conn_max_lifetime: "5m"
 ```
 
@@ -320,10 +339,11 @@ database:
 **A:** 检查协程池和连接池配置。
 
 **解决方案：**
+
 ```yaml
 # 调整协程池大小
 executor:
-  pool_size: 50         # 减少协程池大小
+  pool_size: 50 # 减少协程池大小
   max_blocking_tasks: 100
 
 # 调整数据库连接池
@@ -342,11 +362,12 @@ cache:
 **A:** 启用数据库查询日志和性能分析。
 
 **解决方案：**
+
 ```yaml
 # 启用慢查询日志
 database:
   log_level: "info"
-  slow_threshold: "100ms"  # 记录超过 100ms 的查询
+  slow_threshold: "100ms" # 记录超过 100ms 的查询
 ```
 
 ```bash
@@ -361,6 +382,7 @@ go tool pprof http://localhost:8080/debug/pprof/profile
 **A:** 检查 Dockerfile 和网络连接。
 
 **解决方案：**
+
 ```bash
 # 使用国内镜像加速
 docker build --build-arg GOPROXY=https://goproxy.cn,direct -t go-scaffold .
@@ -377,6 +399,7 @@ docker system prune -a
 **A:** 检查端口冲突和依赖关系。
 
 **解决方案：**
+
 ```bash
 # 检查端口占用
 netstat -tlnp | grep 8080
@@ -394,15 +417,16 @@ docker-compose up --no-deps app
 **A:** 检查网络配置和主机名。
 
 **解决方案：**
+
 ```yaml
 # docker-compose.yml
 services:
   app:
     environment:
-      - REI_DATABASE_HOST=mysql  # 使用服务名作为主机名
+      - REI_DATABASE_HOST=mysql # 使用服务名作为主机名
     depends_on:
       - mysql
-  
+
   mysql:
     # 确保 MySQL 服务配置正确
 ```
@@ -414,6 +438,7 @@ services:
 **A:** 检查测试环境配置。
 
 **解决方案：**
+
 ```bash
 # 使用测试配置
 export REI_APP_MODE=test
@@ -431,10 +456,11 @@ go test -short ./...
 **A:** 使用独立的测试数据库。
 
 **解决方案：**
+
 ```yaml
 # configs/config.test.yaml
 database:
-  database: "scaffold_test"  # 使用测试数据库
+  database: "scaffold_test" # 使用测试数据库
 ```
 
 ```go
@@ -452,6 +478,7 @@ func setupTestDB() *gorm.DB {
 **A:** 检查以下配置项：
 
 **解决方案：**
+
 ```yaml
 # configs/config.production.yaml
 app:
@@ -459,7 +486,7 @@ app:
   debug: false
 
 jwt:
-  secret: "change-this-in-production"  # 必须修改
+  secret: "change-this-in-production" # 必须修改
 
 logger:
   level: "info"
@@ -476,6 +503,7 @@ server:
 **A:** 使用内置的健康检查接口。
 
 **解决方案：**
+
 ```bash
 # 基础健康检查
 curl http://localhost:8080/health
@@ -493,6 +521,7 @@ HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
 **A:** 应用已内置优雅关闭机制。
 
 **解决方案：**
+
 ```bash
 # 发送 SIGTERM 信号
 kill -TERM <PID>
@@ -510,6 +539,7 @@ kill -INT <PID>
 **A:** 修改配置文件或环境变量。
 
 **解决方案：**
+
 ```yaml
 # configs/config.yaml
 app:
@@ -517,7 +547,7 @@ app:
 
 logger:
   level: "debug"
-  format: "console"  # 更易读的格式
+  format: "console" # 更易读的格式
 ```
 
 ### Q: 如何查看详细的错误信息？
@@ -525,6 +555,7 @@ logger:
 **A:** 启用调试日志和错误堆栈。
 
 **解决方案：**
+
 ```bash
 # 启用调试模式
 export REI_APP_DEBUG=true
@@ -534,7 +565,7 @@ export REI_LOGGER_LEVEL=debug
 tail -f logs/app.log
 
 # 或实时查看控制台输出
-go run cmd/server/main.go server
+go run ./cmd/server server
 ```
 
 ## 📞 获取更多帮助
@@ -552,35 +583,44 @@ go run cmd/server/main.go server
 
 ```markdown
 ## 环境信息
+
 - OS: [例如 macOS 12.0]
 - Go 版本: [例如 1.24.6]
 - 项目版本: [例如 v0.1.2]
 
 ## 问题描述
+
 [详细描述遇到的问题]
 
 ## 复现步骤
+
 1. [步骤1]
 2. [步骤2]
 3. [步骤3]
 
 ## 预期行为
+
 [描述期望的行为]
 
 ## 实际行为
+
 [描述实际发生的行为]
 
 ## 错误日志
 ```
+
 [粘贴相关的错误日志]
-```
+
+````
 
 ## 配置文件
 ```yaml
 [粘贴相关的配置内容]
-```
+````
+
 ```
 
 ---
 
 **希望这些解答能帮助您顺利使用 Go Scaffold！** 🚀
+```

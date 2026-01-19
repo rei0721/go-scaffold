@@ -68,6 +68,10 @@ type Config struct {
 	// Storage 文件服务配置
 	// 提供统一的文件操作API
 	Storage StorageConfig `mapstructure:"storage"`
+
+	// CORS 跨域资源共享配置
+	// 控制浏览器跨域访问策略
+	CORS CORSConfig `mapstructure:"cors"`
 }
 
 // Validator 定义可验证配置的接口
@@ -94,6 +98,7 @@ func (c *Config) Validate() error {
 		&c.Executor,
 		&c.JWT,
 		&c.Storage,
+		&c.CORS,
 	}
 	for _, validator := range validators {
 		if validator == nil {

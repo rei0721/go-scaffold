@@ -164,6 +164,39 @@ const (
 	EnvJWTIssuer = "JWT_ISSUER"
 )
 
+// CORS 相关环境变量
+const (
+	// EnvCORSEnabled CORS 是否启用
+	// 可选值: true, false
+	// 示例: export CORS_ENABLED=true
+	EnvCORSEnabled = "CORS_ENABLED"
+
+	// EnvCORSAllowOrigins 允许的源列表(逗号分隔)
+	// 示例: export CORS_ALLOW_ORIGINS=http://localhost:3000,https://example.com
+	EnvCORSAllowOrigins = "CORS_ALLOW_ORIGINS"
+
+	// EnvCORSAllowMethods 允许的 HTTP 方法(逗号分隔)
+	// 示例: export CORS_ALLOW_METHODS=GET,POST,PUT,DELETE,OPTIONS
+	EnvCORSAllowMethods = "CORS_ALLOW_METHODS"
+
+	// EnvCORSAllowHeaders 允许的请求头(逗号分隔)
+	// 示例: export CORS_ALLOW_HEADERS=Origin,Content-Type,Authorization
+	EnvCORSAllowHeaders = "CORS_ALLOW_HEADERS"
+
+	// EnvCORSExposeHeaders 暴露的响应头(逗号分隔)
+	// 示例: export CORS_EXPOSE_HEADERS=X-Request-ID,X-Total-Count
+	EnvCORSExposeHeaders = "CORS_EXPOSE_HEADERS"
+
+	// EnvCORSAllowCredentials 是否允许携带凭证
+	// 可选值: true, false
+	// 示例: export CORS_ALLOW_CREDENTIALS=true
+	EnvCORSAllowCredentials = "CORS_ALLOW_CREDENTIALS"
+
+	// EnvCORSMaxAge 预检请求缓存时间(秒)
+	// 示例: export CORS_MAX_AGE=3600
+	EnvCORSMaxAge = "CORS_MAX_AGE"
+)
+
 // 其他常量
 const (
 	// EnvFilePath .env 文件路径
@@ -194,4 +227,5 @@ const (
 	AppInitDBName   = "initdb"
 	AppRBACName     = "rbac"
 	AppStorageName  = "storage"
+	AppCORSName     = "cors"
 )

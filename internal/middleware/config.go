@@ -20,6 +20,10 @@ type MiddlewareConfig struct {
 	// TraceID 请求追踪 ID 中间件配置
 	// 负责为每个请求生成或提取 TraceID
 	TraceID TraceIDConfig `mapstructure:"traceId"`
+
+	// CORS 跨域资源共享中间件配置
+	// 负责处理浏览器跨域请求
+	CORS CORSConfig `mapstructure:"cors"`
 }
 
 // RecoveryConfig panic 恢复中间件的配置
@@ -96,4 +100,45 @@ func DefaultMiddlewareConfig() MiddlewareConfig {
 			HeaderName: "X-Request-ID", // 使用标准的 header 名称
 		},
 	}
+}
+
+// CORSConfig 跨域资源共享中间件的配置
+// 这个中间件处理浏览器的跨域请求
+type CORSConfig struct {
+	// Enabled 是否启用 CORS 中间件
+	// true: 启用跨域支持
+	// false: 禁用(所有跨域请求将被浏览器阻止)
+	// 开发环境通常启用,生产环境根据需求决定
+	Enabled bool `mapstructure:"enabled"`
+
+	// AllowOrigins 允许的源列表
+	// 指定哪些域名可以跨域访问
+	// 格式:
+	//   - 精确匹配: "http://localhost:3000"
+	//   - 通配符: "*" (允许所有源,不安全,仅开发环境使用)
+	// 示例: []string{"http://localhost:3000", "https://example.com"}
+	AllowOrigins []string `mapstructure:"allowOrigins"`
+
+	// AllowMethods 允许的 HTTP 方法
+	// 指定跨域请求允许使用的 HTTP 方法
+	// 常用方法: GET, POST, PUT, DELETE, PATCH, OPTIONS
+	AllowMethods []string `mapstructure:"allowMethods"`
+
+	// AllowHeaders 允许的请求头
+	// 指定跨域请求允许携带的自定义请求头
+	AllowHeaders []string `mapstructure:"allowHeaders"`
+
+	// ExposeHeaders 暴露给浏览器的响应头
+	// 默认情况下浏览器只能访问简单响应头
+	// 通过此配置可以让浏览器访问自定义响应头
+	ExposeHeaders []string `mapstructure:"exposeHeaders"`
+
+	// AllowCredentials 是否允许携带凭证
+	// true: 允许跨域请求携带 Cookie、HTTP Auth 等
+	// false: 不允许携带凭证
+	AllowCredentials bool `mapstructure:"allowCredentials"`
+
+	// MaxAge 预检请求缓存时间(秒)
+	// 浏览器会缓存 OPTIONS 预检请求的结果
+	MaxAge int `mapstructure:"maxAge"`
 }

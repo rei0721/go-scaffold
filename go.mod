@@ -9,7 +9,8 @@ require (
 	github.com/dave/jennifer v1.7.1
 	github.com/disintegration/imaging v1.6.2
 	github.com/fsnotify/fsnotify v1.9.0
-	github.com/gabriel-vasile/mimetype v1.4.8
+	github.com/gabriel-vasile/mimetype v1.4.9
+	github.com/gin-contrib/cors v1.7.6
 	github.com/gin-gonic/gin v1.11.0
 	github.com/golang-jwt/jwt/v5 v5.3.0
 	github.com/iancoleman/strcase v0.3.0
@@ -50,7 +51,7 @@ require (
 	github.com/go-playground/validator/v10 v10.27.0 // indirect
 	github.com/go-sql-driver/mysql v1.9.3 // indirect
 	github.com/go-viper/mapstructure/v2 v2.4.0 // indirect
-	github.com/goccy/go-json v0.10.2 // indirect
+	github.com/goccy/go-json v0.10.5 // indirect
 	github.com/goccy/go-yaml v1.18.0 // indirect
 	github.com/golang-sql/civil v0.0.0-20220223132316-b832511892a9 // indirect
 	github.com/golang-sql/sqlexp v0.1.0 // indirect
@@ -67,7 +68,7 @@ require (
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mattn/go-sqlite3 v1.14.22 // indirect
 	github.com/microsoft/go-mssqldb v1.9.5 // indirect
-	github.com/modern-go/concurrent v0.0.0-20180228061459-e0a39a4cb421 // indirect
+	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v1.0.2 // indirect
 	github.com/ncruces/go-strftime v1.0.0 // indirect
 	github.com/otiai10/mint v1.6.3 // indirect

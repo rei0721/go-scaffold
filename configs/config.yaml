@@ -236,3 +236,53 @@ storage:
   # 缓冲区满时,新事件将被阻塞
   # 推荐值: 100-500
   watch_buffer_size: 100
+
+# CORS 跨域资源共享配置
+# 控制浏览器跨域访问策略
+cors:
+  # 是否启用 CORS
+  # true: 启用, false: 禁用
+  enabled: true
+
+  # 允许的源列表
+  # 开发环境可以使用 "*" 允许所有源
+  # 生产环境必须明确指定允许的域名,例如:
+  # - http://localhost:3000
+  # - https://example.com
+  # - https://app.example.com
+  allow_origins:
+    - "*" # 开发环境使用,生产环境请更改
+
+  # 允许的 HTTP 方法
+  # 常用方法: GET, POST, PUT, DELETE, PATCH, OPTIONS
+  allow_methods:
+    - GET
+    - POST
+    - PUT
+    - DELETE
+    - PATCH
+    - OPTIONS
+
+  # 允许的请求头
+  # 列出跨域请求允许携带的自定义请求头
+  allow_headers:
+    - Origin
+    - Content-Type
+    - Authorization
+    - X-Request-ID
+
+  # 暴露给浏览器的响应头
+  # 列出浏览器可以访问的自定义响应头
+  expose_headers:
+    - X-Request-ID
+
+  # 是否允许携带凭证
+  # true: 允许跨域请求携带 Cookie、HTTP Auth 等
+  # false: 不允许携带凭证
+  # 注意: 设置为 true 时,allow_origins 不能使用通配符 "*"
+  allow_credentials: false
+
+  # 预检请求缓存时间(秒)
+  # 浏览器会缓存 OPTIONS 预检请求的结果
+  # 推荐值: 3600 (1小时)
+  max_age: 3600

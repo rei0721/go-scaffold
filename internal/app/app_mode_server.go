@@ -52,6 +52,11 @@ func (app *App) runModeServer() (*App, error) {
 		app.Logger.Info("RBAC is disabled")
 	}
 
+	// 阶段2.9：初始化CORS配置
+	if err := app.initCORS(); err != nil {
+		return nil, err
+	}
+
 	// 阶段3：业务层和HTTP服务器
 	// 注意：initBusiness和initHTTPServer内部会自动注入executor
 	if err := app.initBusiness(); err != nil {
