@@ -52,7 +52,6 @@ configs/config.local.yaml
 
 # git push
 commit.txt
-git_commit.txt
 
 # ai ide
 .kiro
