@@ -30,6 +30,67 @@ description: 识别场景并判断何时需要更新或变更已存在的 skills
 | 发现更优实践       | 🟢 低    | 计划更新   | P2     |
 | 内容表述优化       | 🟢 低    | 批量优化   | P3     |
 
+### 场景分析详细示例
+
+| 场景描述                                                                                                        | 是否需要更新 | 影响的 Skills                                                          | 建议操作                                                              | 优先级 |
+| --------------------------------------------------------------------------------------------------------------- | ------------ | ---------------------------------------------------------------------- | --------------------------------------------------------------------- | ------ |
+| 项目从 `errors.New()` 迁移到统一的 `pkg/errors` 错误码系统                                                      | ✅           | `service-development`, `handler-development`, `repository-development` | 立即更新所有涉及错误处理的示例代码,添加错误码使用说明                 | P0     |
+| 依赖注入模式从 Options 模式改为 `SetXXX` 延迟注入模式                                                           | ✅           | `service-development`, `middleware-development`, `pkg-development`     | 重写构造函数和依赖注入部分的示例,补充新模式的最佳实践                 | P0     |
+| `internal/app/app_business.go` 的初始化流程发生重大改变                                                         | ✅           | 所有涉及依赖注入的 skills                                              | 检查并更新所有 skills 中关于应用初始化的说明和引用                    | P1     |
+| 新增了 `pkg/logger` 包,要求所有 service 和 handler 统一使用                                                     | ✅           | `service-development`, `handler-development`, `middleware-development` | 在所有相关 skill 中补充 logger 的集成和使用示例                       | P1     |
+| 项目从 GORM v1 升级到 GORM v2,部分 API 已变更                                                                   | ✅           | `repository-development`, `model-development`                          | 评估 Breaking Changes,更新数据访问层的示例代码                        | P1     |
+| 发现 `handler-development` 中的示例代码缺少请求参数验证                                                         | ✅           | `handler-development`                                                  | 补充参数验证的完整示例和最佳实践                                      | P1     |
+| 代码审查发现 `middleware-development` 中的中间件注册方式已过时                                                  | ✅           | `middleware-development`                                               | 更新中间件注册方式,补充新的路由配置说明                               | P0     |
+| 项目新增了缓存层(`pkg/cache`),需要在 service 中集成                                                             | ✅           | `service-development`                                                  | 补充缓存集成章节,包括缓存策略和失效策略                               | P1     |
+| `docs/architecture/system_map.md` 更新,目录结构描述与实际代码不一致                                             | ✅           | `code-navigator`                                                       | 同步更新 code-navigator 中的目录结构索引                              | P1     |
+| 发现了更简洁的事务处理写法,减少了 30% 的样板代码                                                                | ✅           | `repository-development`, `service-development`                        | 评估新写法的优势,如果显著提升效率则更新示例                           | P2     |
+| 新人反馈 `test-development` 中的测试用例不够清晰                                                                | ✅           | `test-development`                                                     | 优化示例代码注释,补充常见测试场景的示例                               | P2     |
+| `pkg/jwt` 包新增了 `RefreshToken` 功能                                                                          | ✅           | `handler-development` (涉及认证的部分)                                 | 补充 RefreshToken 的使用示例和最佳实践                                | P2     |
+| 代码风格指南 `docs/contributing/code-style.md` 新增了注释规范要求                                               | ✅           | 所有包含代码示例的 skills                                              | 按照新规范为所有示例代码添加或优化注释                                | P2     |
+| 持续集成 CI 配置更新,新增了代码覆盖率检查要求                                                                   | ✅           | `test-development`                                                     | 补充测试覆盖率相关的说明和目标要求                                    | P2     |
+| 项目从 Go 1.19 升级到 Go 1.21,可以使用泛型简化部分代码                                                          | ✅           | `pkg-development`, `repository-development`                            | 评估泛型的适用场景,在合适的地方补充泛型使用示例                       | P2     |
+| 发现 `service-development` 中引用的文件路径 `internal/types/service.go` 已移动到 `internal/types/interfaces.go` | ✅           | `service-development`                                                  | 立即修正文件路径引用                                                  | P0     |
+| 代码审查反馈,多个开发者按照 `repository-development` 实现时遗漏了连接池配置                                     | ✅           | `repository-development`                                               | 补充连接池配置的检查项和示例                                          | P1     |
+| 新增了 `pkg/rbac` 权限控制包,需要在 handler 和 middleware 中集成                                                | ✅           | `handler-development`, `middleware-development`                        | 创建独立的 `rbac-integration` skill 或在现有 skill 中补充权限控制章节 | P1     |
+| 发现 `error-handling` skill 中的错误码定义方式与实际代码库不一致                                                | ✅           | `error-handling`                                                       | 立即同步更新错误码的定义方式和示例                                    | P0     |
+| 性能测试发现推荐的数据库查询方式存在 N+1 问题                                                                   | ✅           | `repository-development`                                               | 立即更新为预加载(Preload)方式,补充性能优化说明                        | P0     |
+| 项目引入了 Swagger 自动生成 API 文档,handler 需要添加特定注释                                                   | ✅           | `handler-development`                                                  | 补充 Swagger 注释规范和示例                                           | P1     |
+| 代码 review 发现按照 `workflow-development` 创建的 workflow 缺少 turbo 标记说明                                 | ✅           | `workflow-development`                                                 | 补充 `// turbo` 和 `// turbo-all` 的使用场景和说明                    | P2     |
+| 多个 skills 中都提到了配置管理,但描述方式不一致                                                                 | ✅           | 多个 skills                                                            | 统一配置管理的描述,或创建独立的 `config-integration` skill            | P2     |
+| 发现 `pkg-development` 中关于接口设计的建议与新的项目规范不符                                                   | ✅           | `pkg-development`                                                      | 更新接口设计部分,对齐最新的接口规范                                   | P1     |
+| 项目新增了 `docs/architecture/dependency_map.md` 依赖关系文档                                                   | ✅           | `code-navigator`                                                       | 在 code-navigator 中补充依赖关系导航                                  | P2     |
+| 发现使用 `skill-development` 创建的新 skill 普遍缺少"常见问题"章节                                              | ✅           | `skill-development`                                                    | 在模板中补充"常见问题"章节的说明和示例                                | P2     |
+| 代码库中实际的测试文件命名从 `_test.go` 改为统一放在 `test/` 目录                                               | ✅           | `test-development`                                                     | 更新测试文件的组织方式和路径说明                                      | P1     |
+| 安全审计发现推荐的密码加密方式已不符合最新安全标准                                                              | ✅           | 涉及认证的 skills                                                      | 立即更新为推荐的加密算法(如 bcrypt/argon2)                            | P0     |
+| 仅修改了 `service-development` 中的措辞,使表述更清晰                                                            | ✅           | `service-development`                                                  | 微调优化,可以在低优先级时批量处理                                     | P3     |
+| Gin 框架从 v1.7 升级到 v1.9,但 API 完全向后兼容,无新特性                                                        | ❌           | -                                                                      | 无需更新 skills                                                       | -      |
+| 开发者询问如何实现某功能,但实际上现有 skill 已充分覆盖                                                          | ❌           | -                                                                      | 无需更新,考虑通过培训或 FAQ 改善                                      | -      |
+| 某个冷门的 pkg 工具包更新,但项目中几乎不使用                                                                    | ❌           | -                                                                      | 评估使用频率,如不常用则不更新                                         | -      |
+| 项目切换到新的日志库(如从 logrus 到 zap),涉及所有代码层                                                         | ✅           | 所有包含日志使用的 skills                                              | 分批次更新所有相关 skills,优先更新最常用的                            | P0/P1  |
+| 项目采用了新的目录结构标准(如 feature-based 替代 layer-based)                                                   | ✅           | 几乎所有开发类 skills                                                  | 制定详细的更新计划,这是重大架构变更,需要全面重构 skills 系统          | P0     |
+| 发现 `docs-sync` skill 中的检查脚本在 Windows 环境下无法运行                                                    | ✅           | `docs-sync`                                                            | 补充跨平台兼容的脚本版本或说明                                        | P1     |
+| 团队决定统一使用 make 命令简化常用操作,新增了 Makefile                                                          | ✅           | `workflow-development` 以及涉及命令执行的 skills                       | 补充 make 命令的使用说明,更新示例命令                                 | P2     |
+| 项目接入了 OpenTelemetry 分布式追踪,service 和 handler 需要添加 trace                                           | ✅           | `service-development`, `handler-development`, `middleware-development` | 创建 `distributed-tracing` skill 或在现有 skill 中补充追踪集成        | P1     |
+| 代码审查发现 `model-development` skill 中缺少数据库索引的设计指导                                               | ✅           | `model-development`                                                    | 补充索引设计的最佳实践和性能考量                                      | P2     |
+| 新人入职时反馈 skills 之间的引用关系不清晰,难以找到相关内容                                                     | ✅           | `skills-map` 或所有 skills                                             | 优化 skills-map 的导航结构,或在各 skill 中补充"相关 Skills"章节       | P2     |
+| 敏感操作(如删除用户、清空数据)引入了二次确认机制                                                                | ✅           | `handler-development`, 涉及危险操作的 skills                           | 补充二次确认的实现示例和安全检查清单                                  | P1     |
+| 项目开始使用特性开关(Feature Flag)进行灰度发布                                                                  | ✅           | `service-development`, `handler-development`                           | 创建 `feature-flag` skill 或补充特性开关的集成方式                    | P2     |
+| 发现三个不同的 skills 用不同方式描述同一个概念(如"业务逻辑层"、"服务层"、"Service")                             | ✅           | 相关的多个 skills                                                      | 统一术语表述,考虑建立项目术语表                                       | P2     |
+| 项目启用了严格的代码检查工具(golangci-lint),新增了多条规则                                                      | ✅           | 所有包含代码示例的 skills                                              | 运行 lint 检查所有示例代码,修复不符合规范的部分                       | P1     |
+| 性能优化后,推荐的缓存策略从"缓存所有查询"改为"只缓存热点数据"                                                   | ✅           | `service-development` (缓存相关部分), `repository-development`         | 更新缓存策略说明,补充缓存决策的判断标准                               | P2     |
+| 发现按照 `work-log` skill 记录的工作日志格式不统一                                                              | ✅           | `work-log`                                                             | 强化日志格式规范,补充标准模板和示例                                   | P2     |
+| 项目文档规范要求所有 pkg 必须有 README.md 和 doc.go                                                             | ✅           | `pkg-development`                                                      | 补充文档要求的检查项和模板                                            | P1     |
+| 月度审查发现 5 个 skills 引用的示例文件路径已失效                                                               | ✅           | 相关的 5 个 skills                                                     | 批量修复文件路径,考虑添加自动化路径检查                               | P1     |
+| 发现新创建的 skills 普遍缺少代码注释,不符合质量标准                                                             | ✅           | `skill-development`, 相关新 skills                                     | 在 `skill-development` 中强调代码注释要求,为已创建的 skills 补充注释  | P2     |
+| 项目从单体架构演进为分层架构,层与层之间的调用规范明确                                                           | ✅           | `handler-development`, `service-development`, `repository-development` | 重大架构变更,需要全面更新这些核心 skills,明确层级调用规范             | P0     |
+| 引入了响应统一封装格式(如 `{code, message, data}`),所有 API 返回需要遵循                                        | ✅           | `handler-development`                                                  | 更新所有 API 响应示例,补充统一响应格式的说明                          | P0     |
+| 新增了请求上下文(Context)传递用户信息的标准方式                                                                 | ✅           | `middleware-development`, `handler-development`, `service-development` | 补充 Context 使用规范和用户信息提取示例                               | P1     |
+| 数据库连接改为读写分离,repository 需要区分主从库                                                                | ✅           | `repository-development`                                               | 补充读写分离的实现方式和最佳实践                                      | P1     |
+| 静态代码分析工具指出多个 skill 示例代码存在潜在的空指针风险                                                     | ✅           | 相关 skills                                                            | 立即修复示例代码的安全隐患,补充安全编码检查项                         | P0     |
+| 定期审查发现某个两年前创建的 skill 已完全过时,不再适用于当前技术栈                                              | ✅           | 该 skill                                                               | 评估是否需要保留,如不需要则归档或删除                                 | P2     |
+| 新增了 AI 辅助代码生成工具,可以基于 skills 自动生成样板代码                                                     | ✅           | `skill-development`, 相关 skills                                       | 补充 AI 工具使用说明,确保 skills 格式适合 AI 理解                     | P2     |
+| 项目引入容器化部署,开发环境配置方式发生变化                                                                     | ✅           | 涉及环境配置的 skills                                                  | 更新环境配置说明,补充 Docker 相关的开发流程                           | P1     |
+
 ### 1. 代码规范变更
 
 **触发条件：**
@@ -140,9 +201,9 @@ description: 识别场景并判断何时需要更新或变更已存在的 skills
 
 基础信息：
 
-- 包名: ****\_\_\_****
-- 旧版本: ****\_\_\_****
-- 新版本: ****\_\_\_****
+- 包名: \***\*\_\_\_\*\***
+- 旧版本: \***\*\_\_\_\*\***
+- 新版本: \***\*\_\_\_\*\***
 
 影响分析：
 
@@ -154,8 +215,8 @@ description: 识别场景并判断何时需要更新或变更已存在的 skills
 
 关联 skills：
 
-- [ ] skill-1: ****\_\_\_****
-- [ ] skill-2: ****\_\_\_****
+- [ ] skill-1: \***\*\_\_\_\*\***
+- [ ] skill-2: \***\*\_\_\_\*\***
 
 更新决策：
 
