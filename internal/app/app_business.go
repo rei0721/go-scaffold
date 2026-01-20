@@ -41,7 +41,7 @@ func (app *App) initBusiness() error {
 	rbacHandler := handler.NewRBACHandler(rbacSvc, app.Logger)
 
 	// 初始化 router
-	r := router.New(authHandler, rbacHandler, app.Logger, app.JWT, rbacSvc)
+	r := router.New(authHandler, rbacHandler, app.Logger, app.I18n, app.JWT, rbacSvc)
 
 	// Set Gin mode based on config
 	if app.Config.Server.Mode == "release" {

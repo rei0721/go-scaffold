@@ -8,6 +8,7 @@ import (
 	"github.com/rei0721/go-scaffold/internal/handler"
 	"github.com/rei0721/go-scaffold/internal/middleware"
 	rbacService "github.com/rei0721/go-scaffold/internal/service/rbac"
+	"github.com/rei0721/go-scaffold/pkg/i18n"
 	"github.com/rei0721/go-scaffold/pkg/jwt"
 	"github.com/rei0721/go-scaffold/pkg/logger"
 	"github.com/rei0721/go-scaffold/types/constants"
@@ -38,6 +39,10 @@ type Router struct {
 	// 也会传递给中间件使用
 	logger logger.Logger
 
+	// i18n 国际化
+	// 用于处理国际化
+	i18n i18n.I18n
+
 	// jwt JWT管理器
 	// 用于认证中间件验证token
 	// 如果为nil,则不启用认证保护
@@ -65,12 +70,13 @@ type Router struct {
 // 使用场景:
 //
 //	在应用初始化时创建,然后调用 Setup() 配置路由
-func New(authHandler *handler.AuthHandler, rbacHandler *handler.RBACHandler, log logger.Logger, jwtManager jwt.JWT, rbacSvc rbacService.RBACService) *Router {
+func New(authHandler *handler.AuthHandler, rbacHandler *handler.RBACHandler, log logger.Logger, i18nManager i18n.I18n, jwtManager jwt.JWT, rbacSvc rbacService.RBACService) *Router {
 	return &Router{
 		authHandler: authHandler,
 		rbacHandler: rbacHandler,
 		logger:      log,
 		jwt:         jwtManager,
+		i18n:        i18nManager,
 		rbacService: rbacSvc,
 	}
 }
@@ -98,25 +104,31 @@ func (r *Router) Setup(cfg middleware.MiddlewareConfig) *gin.Engine {
 	// 我们使用 gin.New() 从零开始,完全控制中间件
 	r.engine = gin.New()
 
-	// 1. 应用 TraceID 中间件(必须第一个)
+	// 应用 I18n 中间件
+	// 处理国际化
+	// 必须在其他中间件之前,以便预检请求(OPTIONS)能被正确处理
+	// 这样可以确保所有跨域请求的响应都包含正确的 CORS 头
+	r.engine.Use(middleware.I18n(r.i18n))
+
+	// 应用 TraceID 中间件(必须第一个)
 	// 为每个请求生成或提取 TraceID
 	// 后续所有中间件和处理器都可以使用这个 TraceID
 	// 这是分布式追踪的基础
 	r.engine.Use(middleware.TraceID(cfg.TraceID))
 
-	// 2. 应用 CORS 中间件
+	// 应用 CORS 中间件
 	// 处理跨域资源共享(CORS)
 	// 必须在其他中间件之前,以便预检请求(OPTIONS)能被正确处理
 	// 这样可以确保所有跨域请求的响应都包含正确的 CORS 头
 	r.engine.Use(middleware.CORSMiddleware(cfg.CORS))
 
-	// 3. 应用 Logger 中间件
+	// 应用 Logger 中间件
 	// 记录每个请求的详细信息:方法、路径、状态码、耗时、TraceID 等
 	// 这对于监控、调试和问题排查至关重要
 	// 可以在配置中指定跳过某些路径(如健康检查)
 	r.engine.Use(middleware.Logger(cfg.Logger, r.logger))
 
-	// 4. 应用 Recovery 中间件(必须最后)
+	// 应用 Recovery 中间件(必须最后)
 	// 捕获所有 panic,防止服务崩溃
 	// 必须在所有其他中间件之后,才能捕获它们的 panic
 	// 发生 panic 时会记录日志并返回 500 错误

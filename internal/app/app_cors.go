@@ -1,8 +1,6 @@
 package app
 
-import (
-	"github.com/rei0721/go-scaffold/internal/middleware"
-)
+import "github.com/rei0721/go-scaffold/internal/middleware"
 
 // initCORS 初始化 CORS 中间件配置
 // 从配置文件加载 CORS 配置，应用默认值并验证有效性
